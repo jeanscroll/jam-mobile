@@ -50,3 +50,5 @@ plasmic-init-old.ts
 .npmrc
 
 .history
+resources/ios/**/*
+resources/android/**/*
