@@ -1,0 +1,108 @@
+name: Deploy to production
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    steps:
+
+      # Étape 1 : Cloner le code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Étape 2 : Configurer SSH pour le serveur
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP_PRODUCTION }} >> ~/.ssh/known_hosts  
+
+      # Étape 3 : Obtenir la date
+      - name: Get current date and set app name
+        run: |
+          echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "myapp=jam" >> $GITHUB_ENV
+          echo "environnement=production" >> $GITHUB_ENV
+
+      # Étape 4 : Configurer QEMU pour la construction multiplateforme
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      # Étape 5 : Configurer Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Étape6 : Se connecter à Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{secrets.DOCKERHUB_USERNAME}}
+          password: ${{secrets.DOCKERHUB_TOKEN }}
+
+      # Étape 7 : Construire et pousser l'image Docker pour la staging
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          context: ./
+          file: ./${{ env.environnement }}/Dockerfile
+          build-args: |
+            NODE_AUTH_TOKEN=${{ secrets.PLASMICLIBRARY_TOKEN }}
+            NEXT_PUBLIC_PLASMIC_PROJECT_ID=${{ secrets.NEXT_PUBLIC_PLASMIC_PROJECT_ID }}
+            NEXT_PUBLIC_PLASMIC_PROJECT_TOKEN=${{ secrets.NEXT_PUBLIC_PLASMIC_PROJECT_TOKEN }}
+            NEXT_PUBLIC_SUPABASE_ID=${{ secrets.NEXT_PUBLIC_SUPABASE_ID }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:${{ env.environnement }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:${{ github.sha }}
+          labels: |
+            maintainer=${{ secrets.DOCKERHUB_USERNAME }}
+            version=${{ github.sha }}
+            build-date=${{ env.date }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:cache
+          cache-to: type=inline
+
+      - name: Login to Docker Hub on production Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP_PRODUCTION }} "
+            echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          "
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      - name: Deploy to production
+        run: |
+          ssh  -o StrictHostKeyChecking=no -T ubuntu@${{ secrets.SERVER_IP_PRODUCTION }} "
+            cd /srv/projets/${{ env.environnement }}/${{ env.myapp }} &&
+            docker compose -f docker-compose.yml pull &&
+            docker compose -f docker-compose.yml up -d
+          "
+
+      # Étape 10 : Nettoyer le serveur Docker
+      - name: Clean up Docker on staging Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP_PRODUCTION }} "
+            echo 'Starting Docker cleanup...' &&
+            echo 'Before cleanup:' &&
+            df -h &&
+            docker system prune -a --force &&
+            docker image prune -a --force &&
+            docker volume prune --force &&
+            docker network prune --force &&
+            echo 'After cleanup:' &&
+            df -h &&
+            echo 'Docker cleanup completed successfully.'
+          "
+
+    concurrency:
+      group: docker-build-${{ github.ref }}
+      cancel-in-progress: true

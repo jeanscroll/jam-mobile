@@ -1,0 +1,374 @@
+/* SignUp.module.css */
+
+/* Styles généraux */
+.signUpCard {
+  background-color: #fff;
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.title {
+  margin-bottom: 15px;
+  font-weight: bold;
+  font-size: 24px;
+}
+
+/* Formulaire */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nameGroup {
+  display: flex;
+  gap: 16px;
+}
+
+.nameGroup .inputGroup {
+  flex: 1;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputGroup label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+  position: relative;
+}
+
+.inputGroup label::after {
+  content: "";
+}
+
+.requiredField label::after {
+  content: "*";
+  color: #e53e3e;
+  margin-left: 2px;
+  font-size: 16px;
+  position: relative;
+  top: 2px;
+}
+
+.input {
+  padding: 12px;
+  border-radius: 16px !important;
+  border: 1px solid #ddd;
+  width: 100%;
+  font-size: 15px;
+  background-color: #fff;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #7641f1;
+  box-shadow: 0 0 0 1px rgba(118, 65, 241, 0.2);
+}
+
+/* Styles pour les entrées de mot de passe */
+.passwordInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordInput {
+  width: 100%;
+  padding-right: 42px; /* Espace pour le bouton d'oeil */
+}
+
+.togglePasswordVisibility {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.togglePasswordVisibility:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.togglePasswordVisibility:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(118, 65, 241, 0.2);
+}
+
+.inputError {
+  border-color: #e53e3e !important;
+  background-color: rgba(229, 62, 62, 0.05) !important;
+}
+
+.errorMessage {
+  color: #e53e3e;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+.phoneInputGroup {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  overflow: hidden;
+  height: 42px;
+  background-color: #fff;
+}
+
+.phoneSelector {
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  padding: 0 0 0 12px;
+  background-color: #fff;
+  border: none;
+  border-right: none !important;
+  position: relative;
+}
+
+.phoneSelector :global(.flex) {
+  border: none !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+.phoneSelector :global(select) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: transparent;
+  font-size: 14px;
+  padding-right: 24px;
+  border: none;
+  min-width: 60px;
+  cursor: pointer;
+}
+
+.phoneSelector::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #666;
+  pointer-events: none;
+}
+
+.phoneSelector :global(img) {
+  margin-right: 5px;
+}
+
+.phoneInput {
+  flex: 1;
+  padding: 10px 12px 10px 0;
+  border: none;
+  outline: none;
+  font-size: 16px;
+}
+
+.passwordHint {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+/* Barre de force du mot de passe */
+.strengthBars {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.strengthBar {
+  width: 25%;
+  height: 6px;
+  background-color: #ddd;
+  border-radius: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.strengthBar.filled {
+  background-color: #4caf50;
+}
+
+.strengthBar.filled:first-child {
+  background-color: #8bc34a;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.checkboxGroup input[type="checkbox"] {
+  margin-top: 2px;
+}
+
+.checkboxLabel {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.submitButton {
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  background-color: #8a4baf;
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 8px;
+  height: 48px;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
+
+.submitButton:hover {
+  opacity: 0.9;
+}
+
+.arrowIcon {
+  font-size: 18px;
+  margin-left: 4px;
+}
+
+/* Styles pour les boutons OAuth */
+.oAuthContainer {
+  margin-top: 5px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.separator {
+  position: relative;
+  width: 100%;
+  text-align: center;
+  margin: 3px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.separator::before,
+.separator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 20px);
+  height: 1px;
+  background-color: #ddd;
+}
+
+.separator::before {
+  left: 0;
+}
+
+.separator::after {
+  right: 0;
+}
+
+.oAuthButtons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.oAuthButton {
+  flex: 1;
+  border: 1px solid #ddd !important;
+  background-color: white !important;
+  color: #333 !important;
+  font-weight: 500;
+  border-radius: 16px !important;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px !important;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* Style pour le bouton Google */
+.oAuthButton[data-provider="google"] {
+  border-color: #e0e0e0 !important;
+  color: #3c4043 !important;
+}
+
+.oAuthButton[data-provider="google"] img,
+.oAuthButton[data-provider="google"] svg {
+  filter: brightness(0);
+}
+
+/* Style pour le bouton Apple */
+.oAuthButton[data-provider="apple"] {
+  border-color: #e0e0e0 !important;
+  color: #000 !important;
+}
+
+.oAuthButton svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.oAuthButton img {
+  width: 20px;
+  height: 20px;
+  margin-right: 0;
+}
+
+/* Lien de connexion */
+.loginLinkContainer {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.loginLink {
+  color: #666;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.3s;
+}
+
+.loginLink:hover {
+  color: #000;
+  text-decoration: underline;
+}

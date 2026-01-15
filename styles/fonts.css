@@ -1,0 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Poppins:wght@400;600;700&display=swap");
+
+/* Définition des variables CSS pour les polices */
+:root {
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-manrope: "Manrope", sans-serif;
+}

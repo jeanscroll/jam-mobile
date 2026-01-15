@@ -2,7 +2,7 @@ import * as React from "react";
 import {
   PlasmicComponent,
   extractPlasmicQueryData,
-  ComponentRenderData,
+  type ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
 import type { GetStaticPaths, GetStaticProps } from "next";
@@ -60,13 +60,10 @@ export const getStaticProps: GetStaticProps = async (context) => {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const pageModules = await PLASMIC.fetchPages();
+  // Ne générer aucune page au build pour éviter les timeouts Plasmic
+  // Les pages seront générées à la demande (ISR)
   return {
-    paths: pageModules.map((mod) => ({
-      params: {
-        catchall: mod.path.substring(1).split("/"),
-      },
-    })),
+    paths: [],
     fallback: "blocking",
   };
 }

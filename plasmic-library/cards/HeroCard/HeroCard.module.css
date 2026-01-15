@@ -1,0 +1,7 @@
+.heroImage {
+    object-fit: cover;
+    width: 100%;
+    height: auto;
+    margin-top: -25px; /* Ajuste selon le besoin */
+  }
+  

@@ -1,0 +1,274 @@
+name: Test & Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+
+  deploy:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+
+      # Étape 20 : Cloner le code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Étape 21 : Configurer le package Plasmic-library
+      - name: Configure npm for private package
+        run: echo -e "@ScrollAgency:registry=https://npm.pkg.github.com/\n//npm.pkg.github.com/:_authToken=${{ secrets.PLASMICLIBRARY_TOKEN }}" > ~/.npmrc
+
+      # Étape 22 : Installer les dépendance pour la librairie plasmic
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PLASMICLIBRARY_TOKEN }}
+
+      # Étape 23 : Configurer SSH pour le serveur
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP_STAGING }} >> ~/.ssh/known_hosts  
+
+      # Étape 24 : Obtenir la date
+      - name: Get current date and set app name
+        run: |
+          echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "myapp=jam" >> $GITHUB_ENV
+          echo "environnement=staging" >> $GITHUB_ENV
+
+      # Étape 25 : Configurer QEMU pour la construction multiplateforme
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      # Étape 26 : Configurer Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Étape 27 : Se connecter à Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{secrets.DOCKERHUB_USERNAME}}
+          password: ${{secrets.DOCKERHUB_TOKEN }}
+
+      # Étape 28 : Construire et pousser l'image Docker pour la staging
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          context: ./
+          file: ./${{ env.environnement }}/Dockerfile
+          build-args: |
+            NODE_AUTH_TOKEN=${{ secrets.PLASMICLIBRARY_TOKEN }}
+            NEXT_PUBLIC_PLASMIC_PROJECT_ID=${{ secrets.NEXT_PUBLIC_PLASMIC_PROJECT_ID }}
+            NEXT_PUBLIC_PLASMIC_PROJECT_TOKEN=${{ secrets.NEXT_PUBLIC_PLASMIC_PROJECT_TOKEN }}
+            NEXT_PUBLIC_SUPABASE_ID=${{ secrets.NEXT_PUBLIC_SUPABASE_ID }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:${{ env.environnement }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:${{ github.sha }}
+          labels: |
+            maintainer=${{ secrets.DOCKERHUB_USERNAME }}
+            version=${{ github.sha }}
+            build-date=${{ env.date }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.myapp }}:cache
+          cache-to: type=inline
+
+      # Étape 29 : Connexion à Docker Hub sur le serveur staging
+      - name: Login to Docker Hub on Staging Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP_STAGING }} "
+            echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          "
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      # Étape 30 : Déployer sur le serveur staging
+      - name: Deploy to Staging
+        run: |
+          ssh  -o StrictHostKeyChecking=no -T ubuntu@${{ secrets.SERVER_IP_STAGING }} "
+            cd /srv/projets/${{ env.environnement }}/${{ env.myapp }} &&
+            docker compose -f docker-compose.yml pull &&
+            docker compose -f docker-compose.yml up -d
+          "
+
+      # Étape 31 : Nettoyer le serveur Docker
+      - name: Clean up Docker on staging Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP_STAGING }} "
+            echo 'Starting Docker cleanup...' &&
+            echo 'Before cleanup:' &&
+            df -h &&
+            docker system prune -a --force &&
+            docker image prune -a --force &&
+            docker volume prune --force &&
+            docker network prune --force &&
+            echo 'After cleanup:' &&
+            df -h &&
+            echo 'Docker cleanup completed successfully.'
+          "
+
+    concurrency:
+      group: docker-build-${{ github.ref }}
+      cancel-in-progress: true
+
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    steps:
+
+      # Étape 1 : Cloner le code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Étape 2 : Configurer Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # Étape 3 : Installer les dépendances
+      - name: Install dependencies
+        run: |
+          cd tests
+          npm ci
+
+      # Étape 4 : Création du cache npm
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      
+              
+      # Étape 5 : Créer une archive des dépendances NPM
+      - name: Create archive of node_modules
+        run: |
+          tar -czf node_modules.tar.gz ./tests/node_modules
+
+      # Étape 6 : Sauvegarder l'archive comme artifact
+      - name: Upload node_modules as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-modules
+          path: node_modules.tar.gz
+
+  jest-tests:
+    name: Jest Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+
+      # Étape 7 : Cloner le code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Étape 8 : Restaurer les node_modules
+      - name: Restore node_modules
+        uses: actions/download-artifact@v4
+        with:
+          name: node-modules
+      
+      # Étape 9 : Extraire l'archive
+      - name: Extract node_modules
+        run: |
+          tar -xzf node_modules.tar.gz
+
+      # Étape 10 : Exécuter les tests Jest
+      - name: Run Jest tests
+        run: |
+          cd tests
+          npm install
+          npm test
+
+      # Étape 11 : Générer le rapport Jest
+      - name: Generate Jest Report
+        run: |
+          cd tests
+          npm test -- --coverage --outputFile=jest-report.json
+
+      # Étape 12 : Télécharger le rapport Jest
+      - name: Upload Jest Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-report
+          path: test/jest-report.json
+
+  playwright-tests:
+    name: Playwright Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+
+      # Étape 13 : Cloner le code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Étape 14 : Restaurer les node_modules
+      - name: Restore node_modules
+        uses: actions/download-artifact@v4
+        with:
+          name: node-modules
+
+      # Étape 15 : Extraire l'archive
+      - name: Extract node_modules
+        run: |
+          tar -xzf node_modules.tar.gz
+
+      # Étape 16 : Installer les dépendances
+      - name: Install dependencies
+        run: |
+          cd tests
+          npm ci  # Installation propre des dépendances
+
+      # Étape 17 : Installer les dépendances AVANT Playwright
+      - name: Install dependencies
+        run: |
+          cd tests
+          npm install
+
+      # Étape 18 : Installer Playwright et ses navigateurs
+      - name: Install Playwright and Browsers
+        run: |
+          cd tests
+          npx playwright install
+
+
+      # Étape 18 : Exécuter les tests Playwright
+      - name: Run Playwright tests
+        run: |
+          cd tests
+          npx playwright test
+
+      # Étape 18bis : Générer le rapport Playwright
+      - name: Generate Playwright Report
+        run: |
+          cd tests
+          npx playwright test --reporter=json
+
+      # Étape 19 : Télécharger le rapport Playwright
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report.json

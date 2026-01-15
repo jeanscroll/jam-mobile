@@ -1,0 +1,17 @@
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.starFilled {
+  color: #1C3300;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.starEmpty {
+  color: #E5E7EB;
+  font-size: 20px;
+  line-height: 1;
+} 

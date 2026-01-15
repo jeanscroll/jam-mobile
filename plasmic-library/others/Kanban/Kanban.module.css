@@ -1,0 +1,102 @@
+.kanbanContainer {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.kanbanColumn {
+  flex: none;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.columnHeader {
+  padding: 1rem;
+  font-weight: 600;
+  color: var(--column-text-color, #2D3748);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.droppableColumn {
+  min-height: 100px;
+  padding: 0.5rem;
+}
+
+.draggingOver {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.draggableWrapper {
+  margin-bottom: 0.75rem;
+}
+
+.taskCard {
+  background-color: var(--task-bg-color, #ffffff);
+  color: var(--task-text-color, #131013);
+  border: 1px solid var(--task-border-color, #E2E8F0);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.taskCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.dragging {
+  transform: rotate(1deg);
+  box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.1);
+}
+
+.moving {
+  opacity: 0.6;
+}
+
+.dateContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dateLabel {
+  font-size: 0.875rem;
+  color: #666666;
+}
+
+.filterControls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.searchInput {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+}
+
+.filterSelect {
+  padding: 0.5rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+}
+
+.sortDirectionButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.25rem;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.sortDirectionButton:hover {
+  background-color: #F7FAFC;
+} 

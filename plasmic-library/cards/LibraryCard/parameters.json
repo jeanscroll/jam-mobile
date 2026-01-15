@@ -1,0 +1,116 @@
+{
+  "installedVersion": "0.6.1",
+  "lastVersion": "0.6.1",
+  "components": {
+    "JamBadge": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "ProfileBadge": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "CardComplex": {
+      "localVersion": "0.0.2",
+      "remoteVersion": "0.0.2",
+      "status": "✅ À jour"
+    },
+    "CardSimple": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "HeroCard": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "Checkbox": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "Dropdown": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "DropdownMultiSelect": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "JamButton": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "JamTextInput": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "PasswordCheckIndicator": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "SitexButton": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "SitexForm": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "SitexTextInput": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "TextInput": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "FileUploader": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "Map": {
+      "localVersion": "N/A",
+      "remoteVersion": "0.0.1",
+      "status": "🆕 Nouveau composant"
+    },
+    "ProgressBar": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "Toast": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "Toggle": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "0.0.1",
+      "status": "✅ À jour"
+    },
+    "LibraryCard": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "N/A",
+      "status": "🗑 Composant local uniquement"
+    },
+    "ButtonApple": {
+      "localVersion": "0.0.1",
+      "remoteVersion": "N/A",
+      "status": "🗑 Composant local uniquement"
+    }
+  }
+}

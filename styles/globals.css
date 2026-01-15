@@ -1,42 +1,69 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Supprimer les paddings du modal de candidature */
+.Modal__scrollableContent__02GeH {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Cibler plus spécifiquement si besoin */
+.plasmic_default__all.plasmic_default__div.Modal__scrollableContent__02GeH {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
+
+/* ========== WEGLOT STYLES PRODUCTION-SAFE ========== */
+
+/* Sélecteurs ultra-spécifiques pour production */
+html body .weglot_switcher,
+html body .weglot-dropdown,
+html body [class*="weglot"],
+html body #weglot_here,
+body .weglot_switcher,
+body .weglot-dropdown,
+body [class*="weglot"],
+body #weglot_here,
+.weglot_switcher,
+.weglot-dropdown,
+[class*="weglot"],
+#weglot_here {
+  position: fixed !important;
+  bottom: 30px !important;
+  left: 20px !important;
+  width: 70px !important;
+  z-index: 99999 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Forcer même avec les attributs style inline */
+.weglot_switcher[style],
+.weglot-dropdown[style],
+[class*="weglot"][style],
+#weglot_here[style] {
+  position: fixed !important;
+  bottom: 30px !important;
+  left: 20px !important;
+  width: 70px !important;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+/* Classes Weglot par défaut */
+.wg-default,
+.wg-li,
+.wgcurrent {
+  position: relative !important;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* Surcharge pour les builds de production */
+html[data-build="production"] .weglot_switcher,
+html[data-build="production"] .weglot-dropdown,
+html[data-build="production"] [class*="weglot"] {
+  position: fixed !important;
+  bottom: 30px !important;
+  left: 20px !important;
+  width: 70px !important;
 }
