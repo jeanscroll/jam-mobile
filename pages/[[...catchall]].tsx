@@ -55,13 +55,32 @@ export const getStaticProps: GetStaticProps = async (context) => {
       <PlasmicComponent component={pageMeta.displayName} />
     </PlasmicRootProvider>
   );
-  // Use revalidate if you want incremental static regeneration
+  // Pas de revalidate en mode export statique (Capacitor)
+  const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
+  if (isCapacitorBuild) {
+    return { props: { plasmicData, queryCache } };
+  }
+  // Use revalidate for ISR in server mode
   return { props: { plasmicData, queryCache }, revalidate: 60 };
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  // Ne générer aucune page au build pour éviter les timeouts Plasmic
-  // Les pages seront générées à la demande (ISR)
+  // Pour l'export statique (Capacitor), on doit générer les pages à l'avance
+  // fallback: false est requis pour next export
+  const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
+
+  if (isCapacitorBuild) {
+    // Récupérer toutes les pages Plasmic pour l'export statique
+    const pageModules = await PLASMIC.fetchPages();
+    return {
+      paths: pageModules.map((mod) => ({
+        params: { catchall: mod.path === '/' ? undefined : mod.path.substring(1).split('/') },
+      })),
+      fallback: false,
+    };
+  }
+
+  // En mode normal (serveur), utiliser ISR
   return {
     paths: [],
     fallback: "blocking",
