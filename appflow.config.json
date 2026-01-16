@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "appId": "com.jam.mobile",
+      "appId": "adb651ac",
       "name": "JAM Mobile",
       "type": "capacitor"
     }
