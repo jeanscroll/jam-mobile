@@ -15,10 +15,10 @@
     "appflow:build": "npm run build:capacitor && npx cap sync && cd ios/App && pod install --repo-update"
   },
   "dependencies": {
-    "@capacitor/android": "^8.0.1",
-    "@capacitor/cli": "^8.0.1",
-    "@capacitor/core": "^8.0.1",
-    "@capacitor/ios": "^8.0.1",
+    "@capacitor/android": "^7.4.5",
+    "@capacitor/cli": "^7.4.5",
+    "@capacitor/core": "^7.4.5",
+    "@capacitor/ios": "^7.4.5",
     "@hello-pangea/dnd": "^18.0.1",
     "@heroui/react": "^2.7.5",
     "@mapbox/mapbox-gl-directions": "^4.3.1",
