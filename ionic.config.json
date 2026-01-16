@@ -1,0 +1,10 @@
+{
+  "name": "JAM Mobile",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom",
+  "hooks": {
+    "build:before": "./scripts/build-before.sh"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "apps": [
+    {
+      "id": "com.jam.mobile",
+      "name": "JAM Mobile",
+      "type": "capacitor"
+    }
+  ],
+  "hooks": {
+    "build:before": "scripts/build-before.sh"
+  }
+}
