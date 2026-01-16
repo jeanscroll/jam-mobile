@@ -3,11 +3,7 @@
     {
       "appId": "adb651ac",
       "name": "JAM Mobile",
-      "type": "capacitor",
-      "ios": {
-        "project": "ios/App/App.xcodeproj",
-        "scheme": "App"
-      }
+      "type": "capacitor"
     }
   ],
   "hooks": {

@@ -11,4 +11,12 @@ npm run build:capacitor
 echo "Syncing Capacitor..."
 npx cap sync
 
+# Install CocoaPods for iOS
+if [ -f "ios/App/Podfile" ]; then
+  echo "Installing CocoaPods..."
+  cd ios/App
+  pod install --repo-update
+  cd ../..
+fi
+
 echo "=== Pre-build complete ==="
