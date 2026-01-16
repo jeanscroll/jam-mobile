@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "id": "com.jam.mobile",
+      "appId": "com.jam.mobile",
       "name": "JAM Mobile",
       "type": "capacitor"
     }
