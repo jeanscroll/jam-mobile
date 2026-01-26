@@ -45,16 +45,23 @@ export const getStaticProps: GetStaticProps = async (context) => {
   }
   const pageMeta = plasmicData.entryCompMetas[0];
   // Cache the necessary data fetched for the page
-  const queryCache = await extractPlasmicQueryData(
-    <PlasmicRootProvider
-      loader={PLASMIC}
-      prefetchedData={plasmicData}
-      pageRoute={pageMeta.path}
-      pageParams={pageMeta.params}
-    >
-      <PlasmicComponent component={pageMeta.displayName} />
-    </PlasmicRootProvider>
-  );
+  // Wrapped in try-catch to handle SSR errors in components
+  let queryCache: Record<string, unknown> = {};
+  try {
+    queryCache = await extractPlasmicQueryData(
+      <PlasmicRootProvider
+        loader={PLASMIC}
+        prefetchedData={plasmicData}
+        pageRoute={pageMeta.path}
+        pageParams={pageMeta.params}
+      >
+        <PlasmicComponent component={pageMeta.displayName} />
+      </PlasmicRootProvider>
+    );
+  } catch (error) {
+    console.warn(`PLASMIC: Failed to extract query data for ${pageMeta.displayName}:`, error);
+    // Continue without query cache - data will be fetched client-side
+  }
   // Pas de revalidate en mode export statique (Capacitor)
   const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
   if (isCapacitorBuild) {

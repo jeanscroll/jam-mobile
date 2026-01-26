@@ -15,6 +15,7 @@
     "appflow:build": "npm run build:capacitor && npx cap sync"
   },
   "dependencies": {
+    "@capacitor-community/stripe": "^7.2.2",
     "@capacitor/android": "^7.4.5",
     "@capacitor/cli": "^7.4.5",
     "@capacitor/core": "^7.4.5",

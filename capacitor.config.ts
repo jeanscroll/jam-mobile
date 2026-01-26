@@ -3,7 +3,14 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.jam.mobile',
   appName: 'JAM Mobile',
-  webDir: 'out'
+  webDir: 'out',
+  plugins: {
+    Stripe: {
+      publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
+      merchantIdentifier: 'merchant.jam.mobile',
+      enableGooglePay: false,
+    },
+  },
 };
 
 export default config;
