@@ -64,6 +64,9 @@ export { default as StripeSubscriptionButtonMeta } from "./buttons/StripeSubscri
 //       ApplePayButton
 export { default as ApplePayButton } from "./buttons/ApplePayButton/ApplePayButton";
 export { default as ApplePayButtonMeta } from "./buttons/ApplePayButton/ApplePayButton.meta";
+//       GooglePayButton
+export { default as GooglePayButton } from "./buttons/GooglePayButton/GooglePayButton";
+export { default as GooglePayButtonMeta } from "./buttons/GooglePayButton/GooglePayButton.meta";
 
 // Cards
 //       CardSimple

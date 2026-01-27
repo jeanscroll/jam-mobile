@@ -36,17 +36,47 @@ declare module "@capacitor-community/stripe" {
     DidCreatePaymentMethod = "applePayDidCreatePaymentMethod",
   }
 
+  // Google Pay Types
+  export interface CreateGooglePayOption {
+    paymentIntentClientSecret: string;
+    paymentSummaryItems?: Array<{
+      label: string;
+      amount: number;
+    }>;
+    merchantDisplayName?: string;
+    countryCode: string;
+    currency: string;
+  }
+
+  export interface GooglePayResultInterface {
+    paymentResult: GooglePayEventsEnum;
+  }
+
+  export enum GooglePayEventsEnum {
+    Loaded = "googlePayLoaded",
+    FailedToLoad = "googlePayFailedToLoad",
+    Completed = "googlePayCompleted",
+    Canceled = "googlePayCanceled",
+    Failed = "googlePayFailed",
+  }
+
   export interface PluginListenerHandle {
     remove: () => Promise<void>;
   }
 
   export interface StripePlugin {
     initialize(opts: StripeInitializationOptions): Promise<void>;
+    // Apple Pay
     isApplePayAvailable(): Promise<void>;
     createApplePay(opts: CreateApplePayOption): Promise<void>;
     presentApplePay(): Promise<ApplePayResultInterface>;
+    // Google Pay
+    isGooglePayAvailable(): Promise<void>;
+    createGooglePay(opts: CreateGooglePayOption): Promise<void>;
+    presentGooglePay(): Promise<GooglePayResultInterface>;
+    // Listeners
     addListener(
-      eventName: ApplePayEventsEnum,
+      eventName: ApplePayEventsEnum | GooglePayEventsEnum,
       listenerFunc: () => void
     ): PluginListenerHandle;
   }
