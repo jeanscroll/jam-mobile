@@ -1,9 +1,9 @@
 import type React from "react";
-import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef } from "react";
+import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
 import Image from "next/image";
-import { createClient } from '@/utils/supabase/components'
+import { signInWithOAuth } from "@/lib/auth/oauthNative";
 import { presets } from "@/styles/presets";
 
 type HTMLButtonProps = Pick<ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "disabled">;
@@ -25,9 +25,6 @@ export interface ButtonActions {
     click(): void;
 }
 
-//const isPlasmicStudio = typeof window !== "undefined" && window.location.href.includes("plasmic.app");
-const supabase = createClient();
-
 const AuthButton = forwardRef<ButtonActions, ButtonProps>(
     (
         {
@@ -47,6 +44,7 @@ const AuthButton = forwardRef<ButtonActions, ButtonProps>(
         ref
     ) => {
         const buttonRef = useRef<HTMLButtonElement>(null);
+        const [isLoading, setIsLoading] = useState(false);
 
         useImperativeHandle(ref, () => ({
             click() {
@@ -57,21 +55,22 @@ const AuthButton = forwardRef<ButtonActions, ButtonProps>(
         const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
             if (authProvider === "google") {
                 event.preventDefault();
-                try {
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: "google",
-                    options: {
-                    redirectTo,
-                    },
-                });
+                setIsLoading(true);
 
-                if (error) {
-                    console.error("Login error:", error.message);
-                } else {
-                    console.log("Login successful:", data);
-                }
+                try {
+                    const result = await signInWithOAuth("google", redirectTo);
+
+                    if (!result.success) {
+                        console.error("Login error:", result.error);
+                    } else {
+                        console.log("OAuth flow initiated successfully");
+                        // For native, the actual login completion happens
+                        // via the deep link listener in _app.tsx
+                    }
                 } catch (err) {
-                console.error("Unexpected error:", err);
+                    console.error("Unexpected error:", err);
+                } finally {
+                    setIsLoading(false);
                 }
             } else if (onClick) {
                 onClick(event);
@@ -122,7 +121,7 @@ const AuthButton = forwardRef<ButtonActions, ButtonProps>(
             <button
                 ref={buttonRef}
                 onClick={handleClick}
-                disabled={disabled}
+                disabled={disabled || isLoading}
                 className={cn(variants({ destructive, hierarchy, size, state }), className)}
                 type="button"
                 style={presets.oAuthButton as React.CSSProperties}
@@ -130,7 +129,7 @@ const AuthButton = forwardRef<ButtonActions, ButtonProps>(
                 {iconImage && (icon === "start" || icon === "end" || icon === "only") && (
                     <Image src={iconImage} alt="Icon" width={20} height={20} />
                 )}
-                {icon !== "only" && <span>{label}</span>}
+                {icon !== "only" && <span>{isLoading ? "Chargement..." : label}</span>}
             </button>
         );
     }

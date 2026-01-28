@@ -1,8 +1,8 @@
 import type React from "react";
-import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef, } from "react"
+import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef, useState } from "react"
 import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
-import { createClient } from '@/utils/supabase/components'
+import { signInWithOAuth } from "@/lib/auth/oauthNative";
 import { presets } from "@/styles/presets";
 import Image from "next/image";
 
@@ -28,8 +28,6 @@ export interface ButtonActions {
     click(): void;
 }
 
-const supabase = createClient();
-
 const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
     (
         {
@@ -49,6 +47,7 @@ const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
         ref
     ) => {
         const buttonRef = useRef<HTMLButtonElement>(null);
+        const [isLoading, setIsLoading] = useState(false);
 
         useImperativeHandle(ref, () => ({
             click() {
@@ -57,28 +56,29 @@ const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
         }));
 
         const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-                    if (authProvider === "apple") {
-                        event.preventDefault();
-                        try {
-                        const { data, error } = await supabase.auth.signInWithOAuth({
-                            provider: "apple",
-                            options: {
-                            redirectTo,
-                            },
-                        });
-        
-                        if (error) {
-                            console.error("Login error:", error.message);
-                        } else {
-                            console.log("Login successful:", data);
-                        }
-                        } catch (err) {
-                        console.error("Unexpected error:", err);
-                        }
-                    } else if (onClick) {
-                        onClick(event);
+            if (authProvider === "apple") {
+                event.preventDefault();
+                setIsLoading(true);
+
+                try {
+                    const result = await signInWithOAuth("apple", redirectTo);
+
+                    if (!result.success) {
+                        console.error("Login error:", result.error);
+                    } else {
+                        console.log("OAuth flow initiated successfully");
+                        // For native, the actual login completion happens
+                        // via the deep link listener in _app.tsx
                     }
-                };
+                } catch (err) {
+                    console.error("Unexpected error:", err);
+                } finally {
+                    setIsLoading(false);
+                }
+            } else if (onClick) {
+                onClick(event);
+            }
+        };
 
         const variants = cva(
             "flex items-center justify-center gap-3 rounded transition-all outline-none group",
@@ -123,14 +123,14 @@ const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
                 type="button"
                 ref={buttonRef}
                 onClick={handleClick}
-                disabled={disabled}
+                disabled={disabled || isLoading}
                 className={cn(variants({ destructive, hierarchy, size, state }), className)}
                 style={presets.oAuthButton as React.CSSProperties}
             >
                 {iconImage && (icon === "start" || icon === "end" || icon === "only") && (
-                                    <Image src={iconImage} alt="Icon" width={20} height={20} />
-                                )}
-                                {icon !== "only" && <span>{label}</span>}
+                    <Image src={iconImage} alt="Icon" width={20} height={20} />
+                )}
+                {icon !== "only" && <span>{isLoading ? "Chargement..." : label}</span>}
             </button>
         );
     }

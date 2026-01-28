@@ -11,12 +11,35 @@ import "@/styles/globals.css";
 import "@/styles/fonts.css";
 import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
+import { initializeOAuthListener, isNativePlatform } from "@/lib/auth/oauthNative";
 
 function MyApp({ Component, pageProps }: AppProps) {
+    const router = useRouter();
+
     // Ajouter l'attribut data-build pour identifier l'environnement
     useEffect(() => {
         document.documentElement.setAttribute('data-build', process.env.NODE_ENV as string);
     }, []);
+
+    // Initialize OAuth deep link listener for native platforms
+    useEffect(() => {
+        if (!isNativePlatform()) return;
+
+        const cleanup = initializeOAuthListener(
+            // onSuccess callback
+            () => {
+                console.log("OAuth successful, navigating to home");
+                router.replace("/");
+            },
+            // onError callback
+            (error) => {
+                console.error("OAuth failed:", error);
+                router.replace("/login?error=oauth_failed");
+            }
+        );
+
+        return cleanup;
+    }, [router]);
 
     // Initialize PostHog analytics
     useEffect(() => {
