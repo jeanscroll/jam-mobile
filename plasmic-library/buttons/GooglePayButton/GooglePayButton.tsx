@@ -89,13 +89,21 @@ export default function GooglePayButton({
     }
   }, [items, customerEmail, customerId, metadata, onSuccess, onError, onCancel, isLoading]);
 
-  // Ne pas afficher si pas disponible ou en cours de vérification
+  // Debug mode - afficher le statut au lieu de cacher
   if (checkingAvailability) {
-    return null;
+    return (
+      <div style={{ padding: "12px", backgroundColor: "#f0f0f0", borderRadius: "8px", textAlign: "center" }}>
+        Vérification Google Pay...
+      </div>
+    );
   }
 
   if (!isAvailable) {
-    return null;
+    return (
+      <div style={{ padding: "12px", backgroundColor: "#ffebee", borderRadius: "8px", textAlign: "center", color: "#c62828" }}>
+        Google Pay non disponible sur cet appareil
+      </div>
+    );
   }
 
   // Calculer le total pour l'affichage
