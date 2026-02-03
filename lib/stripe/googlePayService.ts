@@ -37,9 +37,22 @@ export async function isGooglePayAvailable(): Promise<boolean> {
   }
 
   try {
-    await Stripe.isGooglePayAvailable();
+    // Initialiser Stripe avant de vérifier la disponibilité
+    await initializeStripeNative();
+
+    // Timeout de 5 secondes pour éviter les blocages
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 5000)
+    );
+
+    await Promise.race([
+      Stripe.isGooglePayAvailable(),
+      timeoutPromise
+    ]);
+
     return true;
-  } catch {
+  } catch (error) {
+    console.log("Google Pay not available:", error);
     return false;
   }
 }
