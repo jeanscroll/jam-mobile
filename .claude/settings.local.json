@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npx cap sync:*)",
-      "Bash(npm run mobile:build:*)"
+      "Bash(npm run mobile:build:*)",
+      "Bash(npm run cap:open:android:*)"
     ]
   }
 }

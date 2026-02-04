@@ -21,7 +21,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<PaymentIntentResponse | { error: string }>
 ) {
-  await corsPolicy(req, res);
+  const handled = await corsPolicy(req, res);
+  if (handled) return;
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });

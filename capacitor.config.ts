@@ -7,6 +7,10 @@ const config: CapacitorConfig = {
   appId: 'com.jam.mobile',
   appName: 'JAM Mobile',
   webDir: 'out',
+  server: {
+    androidScheme: 'https',
+    iosScheme: 'capacitor',
+  },
   plugins: {
     Stripe: {
       publishableKey: STRIPE_PUBLISHABLE_KEY,

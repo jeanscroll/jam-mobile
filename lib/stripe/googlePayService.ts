@@ -26,6 +26,11 @@ const MERCHANT_DISPLAY_NAME = "JAM Mobile";
 const COUNTRY_CODE = "FR";
 const CURRENCY = "EUR";
 
+// URL de base pour les appels API (production pour Capacitor, relative pour web)
+const API_BASE_URL = Capacitor.isNativePlatform()
+  ? "https://job-around-me.com"
+  : "";
+
 /**
  * Vérifie si Google Pay est disponible sur l'appareil
  * @returns true si Google Pay est disponible, false sinon
@@ -80,7 +85,7 @@ export async function processGooglePayPayment(
     const amountInCents = Math.round(totalAmount * 100);
 
     // 4. Créer le PaymentIntent côté serveur
-    const response = await fetch("/api/stripe/create-payment-intent", {
+    const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -174,7 +179,7 @@ function setupGooglePayListeners() {
  */
 async function confirmPaymentOnServer(paymentIntentId: string): Promise<void> {
   try {
-    await fetch("/api/stripe/confirm-payment", {
+    await fetch(`${API_BASE_URL}/api/stripe/confirm-payment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentIntentId }),
