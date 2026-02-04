@@ -61,9 +61,12 @@ export default function ApplePayButton({
     checkAvailability();
   }, []);
 
+  // Filtrer les items valides (quantité > 0)
+  const validItems = items.filter((item) => item.quantity > 0);
+
   // Handler de paiement
   const handlePayment = useCallback(async () => {
-    if (isLoading || !items.length) return;
+    if (isLoading || !validItems.length) return;
 
     setIsLoading(true);
 
@@ -87,7 +90,7 @@ export default function ApplePayButton({
     } finally {
       setIsLoading(false);
     }
-  }, [items, customerEmail, customerId, metadata, onSuccess, onError, onCancel, isLoading]);
+  }, [validItems, customerEmail, customerId, metadata, onSuccess, onError, onCancel, isLoading]);
 
   // Ne rien afficher si en cours de vérification ou non disponible
   if (checkingAvailability || !isAvailable) {
@@ -95,12 +98,12 @@ export default function ApplePayButton({
   }
 
   // Calculer le total pour l'affichage
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const total = validItems.reduce((sum, item) => sum + item.amount * item.quantity, 0);
 
   return (
     <button
       onClick={handlePayment}
-      disabled={disabled || isLoading || !items.length}
+      disabled={disabled || isLoading || !validItems.length}
       className={`apple-pay-button ${className || ""}`}
       style={{
         backgroundColor: "#000",

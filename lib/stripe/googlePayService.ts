@@ -6,6 +6,7 @@ import { initializeStripeNative } from "./stripeNative";
 export interface PaymentItem {
   label: string;
   amount: number; // En euros (ex: 10.99)
+  quantity: number; // Quantité de cet item
 }
 
 export interface GooglePayConfig {
@@ -25,6 +26,13 @@ export interface GooglePayResult {
 const MERCHANT_DISPLAY_NAME = "JAM Mobile";
 const COUNTRY_CODE = "FR";
 const CURRENCY = "EUR";
+
+// Mapping des labels vers les product_ids Stripe
+const PRODUCT_ID_MAP: Record<string, string> = {
+  "Offre classique": "prod_SzeJ4QAAb4xq0E",
+  "Offre Last Minute": "prod_SzeKEfPLmPy8kq",
+  "Offre Boostées": "prod_SzeKhzG0NYTZNa",
+};
 
 // URL de base pour les appels API (production pour Capacitor, relative pour web)
 const API_BASE_URL = Capacitor.isNativePlatform()
@@ -80,8 +88,9 @@ export async function processGooglePayPayment(
       return { success: false, error: "Google Pay not available on this device" };
     }
 
-    // 3. Calculer le montant total en centimes
-    const totalAmount = config.items.reduce((sum, item) => sum + item.amount, 0);
+    // 3. Filtrer les items avec quantité > 0 et calculer le montant total en centimes
+    const validItems = config.items.filter((item) => item.quantity > 0);
+    const totalAmount = validItems.reduce((sum, item) => sum + item.amount * item.quantity, 0);
     const amountInCents = Math.round(totalAmount * 100);
 
     // 4. Créer le PaymentIntent côté serveur
@@ -94,7 +103,7 @@ export async function processGooglePayPayment(
         customerEmail: config.customerEmail,
         customerId: config.customerId,
         metadata: { ...config.metadata, source: "google_pay" },
-        description: config.items.map((i) => i.label).join(", "),
+        description: validItems.map((i) => `${i.label} x${i.quantity}`).join(", "),
       }),
     });
 
@@ -111,9 +120,9 @@ export async function processGooglePayPayment(
     // 6. Créer la session Google Pay
     await Stripe.createGooglePay({
       paymentIntentClientSecret,
-      paymentSummaryItems: config.items.map((item) => ({
-        label: item.label,
-        amount: item.amount,
+      paymentSummaryItems: validItems.map((item) => ({
+        label: `${item.label} x${item.quantity}`,
+        amount: item.amount * item.quantity,
       })),
       merchantDisplayName: MERCHANT_DISPLAY_NAME,
       countryCode: COUNTRY_CODE,
@@ -128,8 +137,8 @@ export async function processGooglePayPayment(
 
     // 9. Traiter le résultat
     if (result.paymentResult === GooglePayEventsEnum.Completed) {
-      // Confirmer le paiement côté serveur
-      await confirmPaymentOnServer(paymentIntentId);
+      // Confirmer le paiement et sauvegarder l'achat
+      await confirmAndSavePurchase(paymentIntentId, validItems, config.customerId, config.customerEmail);
       return { success: true, paymentIntentId };
     }
 
@@ -174,18 +183,54 @@ function setupGooglePayListeners() {
 }
 
 /**
- * Confirme le paiement côté serveur après succès Google Pay
+ * Confirme le paiement et sauvegarde l'achat côté serveur
  * @param paymentIntentId ID du PaymentIntent à confirmer
+ * @param items Items achetés avec quantités
+ * @param customerId ID du client Stripe
+ * @param customerEmail Email du client
  */
-async function confirmPaymentOnServer(paymentIntentId: string): Promise<void> {
+async function confirmAndSavePurchase(
+  paymentIntentId: string,
+  items: PaymentItem[],
+  customerId?: string,
+  customerEmail?: string
+): Promise<void> {
   try {
-    await fetch(`${API_BASE_URL}/api/stripe/confirm-payment`, {
+    // 1. Confirmer le paiement et récupérer les détails
+    const confirmResponse = await fetch(`${API_BASE_URL}/api/stripe/confirm-payment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentIntentId }),
     });
+
+    const confirmData = await confirmResponse.json();
+
+    // 2. Si le paiement est confirmé, sauvegarder l'achat
+    if (confirmData.success && customerId) {
+      // Mapper les labels vers les product_ids Stripe
+      const products = items.map((item) => ({
+        product_id: PRODUCT_ID_MAP[item.label] || item.label,
+        quantity: item.quantity,
+      }));
+
+      await fetch(`${API_BASE_URL}/api/stripe/save-purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId,
+          customerId,
+          customerEmail,
+          products,
+          receiptUrl: confirmData.receiptUrl,
+          amount: confirmData.amount,
+          receiptTitle: paymentIntentId,
+        }),
+      });
+
+      console.log("Purchase saved successfully for Google Pay");
+    }
   } catch (error) {
-    console.error("Failed to confirm payment on server:", error);
+    console.error("Failed to confirm/save payment on server:", error);
     // Le paiement a réussi côté Stripe, on log juste l'erreur
   }
 }

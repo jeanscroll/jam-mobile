@@ -23,10 +23,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
   const body = Array.isArray(req.body) ? req.body[0] : req.body;
-  const { sessionId, customerId, customerEmail, products, receiptUrl, amount, receiptTitle, subscriptionId, priceId } = body;
+  const { sessionId, paymentIntentId, customerId, customerEmail, products, receiptUrl, amount, receiptTitle, subscriptionId, priceId } = body;
 
-    if (!sessionId || !customerId || !products || !Array.isArray(products)) {
-      return res.status(400).json({ error: "Invalid data" });
+    // Accepter sessionId (web) OU paymentIntentId (natif)
+    if ((!sessionId && !paymentIntentId) || !customerId || !products || !Array.isArray(products)) {
+      return res.status(400).json({ error: "Invalid data: sessionId or paymentIntentId required, plus customerId and products" });
     }
 
   const updates: Record<string, number | string | null> = {};
@@ -55,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             product_id: product_id,
             subscription_id: subscriptionId || null,
             price_id: priceId || null,
-            session_id: sessionId || null,
+            session_id: sessionId || paymentIntentId || null, // Accepte les deux identifiants
             status: "active",
           };
           break;
