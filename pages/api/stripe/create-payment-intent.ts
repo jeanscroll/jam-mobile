@@ -60,17 +60,13 @@ export default async function handler(
       }
     }
 
-    // Créer le PaymentIntent compatible Apple Pay
+    // Créer le PaymentIntent compatible Apple Pay / Google Pay
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
       customer,
       description,
-      metadata: {
-        ...metadata,
-        source: "apple_pay",
-      },
-      // Apple Pay requiert automatic_payment_methods
+      metadata,
       automatic_payment_methods: {
         enabled: true,
       },

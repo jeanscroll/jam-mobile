@@ -94,7 +94,7 @@ export async function processApplePayPayment(
         currency: CURRENCY.toLowerCase(),
         customerEmail: config.customerEmail,
         customerId: config.customerId,
-        metadata: config.metadata,
+        metadata: { ...config.metadata, source: "apple_pay" },
         description: config.items.map((i) => i.label).join(", "),
       }),
     });
