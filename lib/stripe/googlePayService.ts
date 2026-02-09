@@ -34,9 +34,9 @@ const PRODUCT_ID_MAP: Record<string, string> = {
   "Offre Boostées": "prod_SzeKhzG0NYTZNa",
 };
 
-// URL de base pour les appels API (production pour Capacitor, relative pour web)
+// URL de base pour les appels API (configurable via env, fallback production)
 const API_BASE_URL = Capacitor.isNativePlatform()
-  ? "https://job-around-me.com"
+  ? (process.env.NEXT_PUBLIC_API_BASE_URL || "https://job-around-me.com")
   : "";
 
 /**
@@ -65,7 +65,7 @@ export async function isGooglePayAvailable(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.log("Google Pay not available:", error);
+    console.error("Google Pay not available:", error);
     return false;
   }
 }
@@ -79,22 +79,28 @@ export async function processGooglePayPayment(
   config: GooglePayConfig
 ): Promise<GooglePayResult> {
   try {
-    // 1. Initialiser Stripe Native si pas déjà fait
+    console.log("[GooglePay] Step 1: Initializing Stripe Native...");
     await initializeStripeNative();
+    console.log("[GooglePay] Step 1: Done");
 
-    // 2. Vérifier la disponibilité
+    console.log("[GooglePay] Step 2: Checking availability...");
     const available = await isGooglePayAvailable();
+    console.log("[GooglePay] Step 2: Available =", available);
     if (!available) {
       return { success: false, error: "Google Pay not available on this device" };
     }
 
     // 3. Filtrer les items avec quantité > 0 et calculer le montant total en centimes
-    const validItems = config.items.filter((item) => item.quantity > 0);
-    const totalAmount = validItems.reduce((sum, item) => sum + item.amount * item.quantity, 0);
+    const validItems = config.items.filter((item) => Number(item.quantity) > 0);
+    console.log("[GooglePay] Step 3: Raw items =", JSON.stringify(validItems));
+    const totalAmount = validItems.reduce((sum, item) => sum + Number(item.amount) * Number(item.quantity), 0);
     const amountInCents = Math.round(totalAmount * 100);
+    console.log("[GooglePay] Step 3: Items =", validItems.length, "Total =", totalAmount, "€ (", amountInCents, "cents)");
 
     // 4. Créer le PaymentIntent côté serveur
-    const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
+    const apiUrl = `${API_BASE_URL}/api/stripe/create-payment-intent`;
+    console.log("[GooglePay] Step 4: Creating PaymentIntent on", apiUrl);
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -106,49 +112,59 @@ export async function processGooglePayPayment(
         description: validItems.map((i) => `${i.label} x${i.quantity}`).join(", "),
       }),
     });
+    console.log("[GooglePay] Step 4: Response status =", response.status);
 
     if (!response.ok) {
       const error = await response.json();
+      console.error("[GooglePay] Step 4: Error =", JSON.stringify(error));
       return { success: false, error: error.error || "Failed to create payment" };
     }
 
     const { paymentIntentClientSecret, paymentIntentId } = await response.json();
+    console.log("[GooglePay] Step 4: PaymentIntent created =", paymentIntentId);
 
     // 5. Configurer les listeners d'événements
     const listeners = setupGooglePayListeners();
+    console.log("[GooglePay] Step 5: Listeners setup done");
 
     // 6. Créer la session Google Pay
+    console.log("[GooglePay] Step 6: Creating Google Pay session...");
     await Stripe.createGooglePay({
       paymentIntentClientSecret,
       paymentSummaryItems: validItems.map((item) => ({
         label: `${item.label} x${item.quantity}`,
-        amount: item.amount * item.quantity,
+        amount: Number(item.amount) * Number(item.quantity),
       })),
       merchantDisplayName: MERCHANT_DISPLAY_NAME,
       countryCode: COUNTRY_CODE,
       currency: CURRENCY,
     });
+    console.log("[GooglePay] Step 6: Google Pay session created");
 
     // 7. Présenter le sheet Google Pay
+    console.log("[GooglePay] Step 7: Presenting Google Pay sheet...");
     const result = await Stripe.presentGooglePay();
+    console.log("[GooglePay] Step 7: Result =", JSON.stringify(result));
 
     // 8. Nettoyer les listeners
     listeners.forEach((listener) => listener.remove());
 
     // 9. Traiter le résultat
     if (result.paymentResult === GooglePayEventsEnum.Completed) {
-      // Confirmer le paiement et sauvegarder l'achat
+      console.log("[GooglePay] Step 9: Payment completed, confirming...");
       await confirmAndSavePurchase(paymentIntentId, validItems, config.customerId, config.customerEmail);
       return { success: true, paymentIntentId };
     }
 
     if (result.paymentResult === GooglePayEventsEnum.Canceled) {
+      console.log("[GooglePay] Step 9: Payment canceled");
       return { success: false, error: "Payment canceled by user" };
     }
 
+    console.log("[GooglePay] Step 9: Payment failed with result =", result.paymentResult);
     return { success: false, error: "Payment failed" };
   } catch (error) {
-    console.error("Google Pay error:", error);
+    console.error("[GooglePay] EXCEPTION:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

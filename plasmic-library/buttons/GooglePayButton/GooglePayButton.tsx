@@ -49,9 +49,12 @@ export default function GooglePayButton({
   useEffect(() => {
     const checkAvailability = async () => {
       try {
+        console.log("[GooglePayButton] Checking availability...");
         const available = await isGooglePayAvailable();
+        console.log("[GooglePayButton] Available:", available);
         setIsAvailable(available);
-      } catch {
+      } catch (err) {
+        console.error("[GooglePayButton] Availability check error:", err);
         setIsAvailable(false);
       } finally {
         setCheckingAvailability(false);
@@ -66,26 +69,34 @@ export default function GooglePayButton({
 
   // Handler de paiement
   const handlePayment = useCallback(async () => {
-    if (isLoading || !validItems.length) return;
+    console.log("[GooglePayButton] handlePayment called, isLoading:", isLoading, "validItems:", validItems.length);
+    if (isLoading || !validItems.length) {
+      console.log("[GooglePayButton] Blocked: isLoading=", isLoading, "validItems.length=", validItems.length);
+      return;
+    }
 
     setIsLoading(true);
 
     try {
+      console.log("[GooglePayButton] Calling processGooglePayPayment...");
       const result = await processGooglePayPayment({
         items,
         customerEmail,
         customerId,
         metadata,
       });
+      console.log("[GooglePayButton] Result:", JSON.stringify(result));
 
       if (result.success && result.paymentIntentId) {
         onSuccess?.(result.paymentIntentId);
       } else if (result.error?.includes("canceled")) {
         onCancel?.();
       } else {
+        console.error("[GooglePayButton] Payment error:", result.error);
         onError?.(result.error || "Payment failed");
       }
     } catch (error) {
+      console.error("[GooglePayButton] Exception:", error);
       onError?.(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setIsLoading(false);

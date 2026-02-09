@@ -35,9 +35,9 @@ const PRODUCT_ID_MAP: Record<string, string> = {
   "Offre Boostées": "prod_SzeKhzG0NYTZNa",
 };
 
-// URL de base pour les appels API (production pour Capacitor, relative pour web)
+// URL de base pour les appels API (configurable via env, fallback production)
 const API_BASE_URL = Capacitor.isNativePlatform()
-  ? "https://job-around-me.com"
+  ? (process.env.NEXT_PUBLIC_API_BASE_URL || "https://job-around-me.com")
   : "";
 
 /**
@@ -90,8 +90,8 @@ export async function processApplePayPayment(
     }
 
     // 3. Filtrer les items avec quantité > 0 et calculer le montant total en centimes
-    const validItems = config.items.filter((item) => item.quantity > 0);
-    const totalAmount = validItems.reduce((sum, item) => sum + item.amount * item.quantity, 0);
+    const validItems = config.items.filter((item) => Number(item.quantity) > 0);
+    const totalAmount = validItems.reduce((sum, item) => sum + Number(item.amount) * Number(item.quantity), 0);
     const amountInCents = Math.round(totalAmount * 100);
 
     // 4. Créer le PaymentIntent côté serveur
@@ -123,7 +123,7 @@ export async function processApplePayPayment(
       paymentIntentClientSecret,
       paymentSummaryItems: validItems.map((item) => ({
         label: `${item.label} x${item.quantity}`,
-        amount: item.amount * item.quantity,
+        amount: Number(item.amount) * Number(item.quantity),
       })),
       merchantIdentifier: MERCHANT_IDENTIFIER,
       merchantDisplayName: MERCHANT_DISPLAY_NAME,

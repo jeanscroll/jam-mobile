@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -8,28 +7,18 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <!-- Google Pay API configuration -->
-        <meta-data
-            android:name="com.google.android.gms.wallet.api.enabled"
-            android:value="true" />
+        <meta-data android:name="com.google.android.gms.wallet.api.enabled" android:value="true" />
 
         <!-- Stripe Google Pay Configuration -->
-        <meta-data
-            android:name="com.getcapacitor.community.stripe.enable_google_pay"
-            android:value="true" />
+        <meta-data android:name="com.getcapacitor.community.stripe.enable_google_pay" android:value="true" />
         <meta-data
             android:name="com.getcapacitor.community.stripe.publishable_key"
-            android:value="pk_live_51Rgj4ZFVPXc61qf6Cuqgss6kG6T9r0PJixqXb9NUljpU02sKHT9ewFIxpEW56wACxzuHOqzDyDpivmyML2Tqtyy400tvnYfXSu" />
-        <meta-data
-            android:name="com.getcapacitor.community.stripe.country_code"
-            android:value="FR" />
-        <meta-data
-            android:name="com.getcapacitor.community.stripe.merchant_display_name"
-            android:value="JAM Mobile" />
-        <meta-data
-            android:name="com.getcapacitor.community.stripe.google_pay_is_testing"
-            android:value="false" />
+            android:value="pk_live_51Rgj4ZFVPXc61qf6Cuqgss6kG6T9r0PJixqXb9NUljpU02sKHT9ewFIxpEW56wACxzuHOqzDyDpivmyML2Tqtyy400tvnYfXSu"
+        />
+        <meta-data android:name="com.getcapacitor.community.stripe.country_code" android:value="FR" />
+        <meta-data android:name="com.getcapacitor.community.stripe.merchant_display_name" android:value="JAM Mobile" />
+        <meta-data android:name="com.getcapacitor.community.stripe.google_pay_is_testing" android:value="false" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
@@ -38,7 +27,6 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -51,7 +39,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.jam.mobile" />
             </intent-filter>
-
         </activity>
 
         <provider
@@ -59,9 +46,7 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
     </application>
 
