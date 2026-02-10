@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               value: value as string,
             }))
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
           cookiesToSet.forEach(({ name, value, options }) => {
             const cookieOptions = {
               path: '/',
@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               // secure: process.env.NODE_ENV === 'production',
               // sameSite: process.env.NODE_ENV === 'production' ? 'Lax' : 'None',
               secure: true,
-              sameSite:'Lax',
+              sameSite: 'lax' as const,
               maxAge: 60 * 60,
               ...options,
             }
