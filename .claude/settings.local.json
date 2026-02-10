@@ -5,7 +5,8 @@
       "Bash(npx cap sync:*)",
       "Bash(npm run mobile:build:*)",
       "Bash(npm run cap:open:android:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

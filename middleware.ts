@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
           getAll() {
             return request.cookies.getAll()
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
             for (const { name, value, options } of cookiesToSet) {
               if (name === 'session_id' && isOldCookie(value)) {
                 supabaseResponse.cookies.set(name, '', { maxAge: 0, path: '/' });
@@ -78,7 +78,7 @@ export async function middleware(request: NextRequest) {
                 // secure: process.env.NODE_ENV === 'production',
                 // sameSite: process.env.NODE_ENV === 'production' ? 'Lax' : 'None',
                 secure: true,
-                sameSite: 'Lax',
+                sameSite: 'lax' as const,
                 maxAge: 60 * 60,
                 ...options,
               }
