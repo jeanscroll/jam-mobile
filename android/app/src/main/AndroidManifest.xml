@@ -14,11 +14,11 @@
         <meta-data android:name="com.getcapacitor.community.stripe.enable_google_pay" android:value="true" />
         <meta-data
             android:name="com.getcapacitor.community.stripe.publishable_key"
-            android:value="pk_live_51Rgj4ZFVPXc61qf6Cuqgss6kG6T9r0PJixqXb9NUljpU02sKHT9ewFIxpEW56wACxzuHOqzDyDpivmyML2Tqtyy400tvnYfXSu"
+            android:value="pk_test_51Rgj5FFLvC9VgohHypNjqSByH8vBrcmcRrSUk7BY2C7rDle25IMKEiZ7A2fADLlhOteoGtqEDNdSAto8eqAoW7mm00OnzC9wM5"
         />
         <meta-data android:name="com.getcapacitor.community.stripe.country_code" android:value="FR" />
         <meta-data android:name="com.getcapacitor.community.stripe.merchant_display_name" android:value="JAM Mobile" />
-        <meta-data android:name="com.getcapacitor.community.stripe.google_pay_is_testing" android:value="false" />
+        <meta-data android:name="com.getcapacitor.community.stripe.google_pay_is_testing" android:value="true" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
