@@ -5,6 +5,7 @@ import { presets } from "@/styles/presets";
 import Link from "next/link";
 import { EyeIcon, ViewIcon } from "@/plasmic-library/icons/icons";
 import AuthButton from "@/plasmic-library/buttons/ButtonGoogle/ButtonGoogle";
+import ButtonApple from "@/plasmic-library/buttons/ButtonApple/ButtonApple";
 
 export interface LoginProps {
   // Wrapper
@@ -240,7 +241,7 @@ function Login_(
         )}
 
         {showAppleButton && (
-          <AuthButton
+          <ButtonApple
             label={appleButtonText}
             icon="start"
             iconImage="/apple-logo.svg"

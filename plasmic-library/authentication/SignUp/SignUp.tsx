@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { presets } from "@/styles/presets";
 
 import AuthButton from "@/plasmic-library/buttons/ButtonGoogle/ButtonGoogle";
+import ButtonApple from "@/plasmic-library/buttons/ButtonApple/ButtonApple";
 import PhoneSelector from "@/plasmic-library/forms/PhoneSelector/PhoneSelector";
 import AlertManager, {
 	type AlertType,
@@ -427,7 +428,7 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
 				)}
 
 				{showAppleButton && (
-					<AuthButton
+					<ButtonApple
 						label={appleButtonText}
 						icon="start"
 						iconImage="/apple-logo.svg"

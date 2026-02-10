@@ -52,3 +52,4 @@ plasmic-init-old.ts
 .history
 resources/ios/**/*
 resources/android/**/*
+certificates
