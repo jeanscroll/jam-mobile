@@ -10,13 +10,27 @@ export default function OAuthCallbackPage() {
 
     const supabase = createClient()
 
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data?.user) {
-        router.replace('/auth/login')
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         router.replace('/')
       }
     })
+
+    // Fallback : si aucun événement après 5s, vérifier manuellement
+    const timeout = setTimeout(() => {
+      supabase.auth.getUser().then(({ data, error }) => {
+        if (error || !data?.user) {
+          router.replace('/auth/login')
+        } else {
+          router.replace('/')
+        }
+      })
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [router])
   
   // useEffect(() => {
