@@ -31,11 +31,6 @@ const GooglePayButtonMeta = {
       type: "string",
       description: "ID Stripe du client (optionnel)",
     },
-    buttonText: {
-      type: "string",
-      defaultValue: "Payer avec Google Pay",
-      description: "Texte du bouton",
-    },
     disabled: {
       type: "boolean",
       defaultValue: false,

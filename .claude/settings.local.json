@@ -6,7 +6,9 @@
       "Bash(npm run mobile:build:*)",
       "Bash(npm run cap:open:android:*)",
       "Bash(test:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

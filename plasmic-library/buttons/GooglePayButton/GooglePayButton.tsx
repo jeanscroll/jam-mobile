@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import GPay from "@google-pay/button-react";
 import {
   isGooglePayAvailable,
   processGooglePayPayment,
@@ -24,9 +25,6 @@ export interface GooglePayButtonProps {
   // Style
   className?: string;
   disabled?: boolean;
-
-  // Texte personnalisé
-  buttonText?: string;
 }
 
 export default function GooglePayButton({
@@ -39,23 +37,19 @@ export default function GooglePayButton({
   onCancel,
   className,
   disabled,
-  buttonText = "Payer avec Google Pay",
 }: GooglePayButtonProps) {
-  const [isAvailable, setIsAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [nativeAvailable, setNativeAvailable] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(true);
 
-  // Vérifier la disponibilité au montage
+  // Vérifier la disponibilité native (Capacitor/Android) au montage
   useEffect(() => {
     const checkAvailability = async () => {
       try {
-        console.log("[GooglePayButton] Checking availability...");
         const available = await isGooglePayAvailable();
-        console.log("[GooglePayButton] Available:", available);
-        setIsAvailable(available);
-      } catch (err) {
-        console.error("[GooglePayButton] Availability check error:", err);
-        setIsAvailable(false);
+        setNativeAvailable(available);
+      } catch {
+        setNativeAvailable(false);
       } finally {
         setCheckingAvailability(false);
       }
@@ -67,98 +61,135 @@ export default function GooglePayButton({
   // Filtrer les items valides (quantité > 0)
   const validItems = items.filter((item) => item.quantity > 0);
 
-  // Handler de paiement
-  const handlePayment = useCallback(async () => {
-    console.log("[GooglePayButton] handlePayment called, isLoading:", isLoading, "validItems:", validItems.length);
-    if (isLoading || !validItems.length) {
-      console.log("[GooglePayButton] Blocked: isLoading=", isLoading, "validItems.length=", validItems.length);
-      return;
-    }
+  // Calculer le total pour le paymentRequest
+  const total = useMemo(
+    () =>
+      validItems
+        .reduce((sum, item) => sum + item.amount * item.quantity, 0)
+        .toFixed(2),
+    [validItems]
+  );
 
-    setIsLoading(true);
+  // PaymentRequest requis par le composant officiel Google Pay
+  const paymentRequest = useMemo(
+    () => ({
+      apiVersion: 2,
+      apiVersionMinor: 0,
+      allowedPaymentMethods: [
+        {
+          type: "CARD" as const,
+          parameters: {
+            allowedAuthMethods: [
+              "PAN_ONLY" as const,
+              "CRYPTOGRAM_3DS" as const,
+            ],
+            allowedCardNetworks: [
+              "VISA" as const,
+              "MASTERCARD" as const,
+              "AMEX" as const,
+            ],
+          },
+          tokenizationSpecification: {
+            type: "PAYMENT_GATEWAY" as const,
+            parameters: {
+              gateway: "stripe",
+              "stripe:version": "2024-06-20",
+              "stripe:publishableKey":
+                process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+            },
+          },
+        },
+      ],
+      merchantInfo: {
+        merchantId: process.env.NEXT_PUBLIC_GOOGLE_PAY_MERCHANT_ID || "TEST",
+        merchantName: "JAM Mobile",
+      },
+      transactionInfo: {
+        totalPriceStatus: "FINAL" as const,
+        totalPriceLabel: "Total",
+        totalPrice: total,
+        currencyCode: "EUR",
+        countryCode: "FR",
+      },
+    }),
+    [total]
+  );
 
-    try {
-      console.log("[GooglePayButton] Calling processGooglePayPayment...");
-      const result = await processGooglePayPayment({
-        items,
-        customerEmail,
-        customerId,
-        metadata,
-      });
-      console.log("[GooglePayButton] Result:", JSON.stringify(result));
+  // Handler de paiement — intercepte le clic pour utiliser le flow natif Capacitor
+  const handleClick = useCallback(
+    async (event: Event) => {
+      // Empêcher l'ouverture du sheet Google Pay web
+      event.preventDefault();
 
-      if (result.success && result.paymentIntentId) {
-        onSuccess?.(result.paymentIntentId);
-      } else if (result.error?.includes("canceled")) {
-        onCancel?.();
-      } else {
-        console.error("[GooglePayButton] Payment error:", result.error);
-        onError?.(result.error || "Payment failed");
+      if (isLoading || disabled || !validItems.length) return;
+
+      setIsLoading(true);
+
+      try {
+        const result = await processGooglePayPayment({
+          items,
+          customerEmail,
+          customerId,
+          metadata,
+        });
+
+        if (result.success && result.paymentIntentId) {
+          onSuccess?.(result.paymentIntentId);
+        } else if (result.error?.includes("canceled")) {
+          onCancel?.();
+        } else {
+          onError?.(result.error || "Payment failed");
+        }
+      } catch (error) {
+        onError?.(error instanceof Error ? error.message : "Unknown error");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("[GooglePayButton] Exception:", error);
-      onError?.(error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [validItems, customerEmail, customerId, metadata, onSuccess, onError, onCancel, isLoading]);
+    },
+    [
+      validItems,
+      items,
+      customerEmail,
+      customerId,
+      metadata,
+      onSuccess,
+      onError,
+      onCancel,
+      isLoading,
+      disabled,
+    ]
+  );
 
-  // Ne rien afficher si en cours de vérification ou non disponible
-  if (checkingAvailability || !isAvailable) {
+  // Ne rien afficher si en cours de vérification, non disponible en natif, ou pas d'items
+  if (checkingAvailability || !nativeAvailable || !validItems.length) {
     return null;
   }
 
-  // Calculer le total pour l'affichage
-  const total = validItems.reduce((sum, item) => sum + item.amount * item.quantity, 0);
-
   return (
-    <button
-      onClick={handlePayment}
-      disabled={disabled || isLoading || !validItems.length}
-      className={`google-pay-button ${className || ""}`}
+    <div
+      className={className}
       style={{
-        backgroundColor: "#fff",
-        color: "#1a1a1a",
-        border: "1px solid #e0e0e0",
-        borderRadius: "16px",
-        padding: "12px 24px",
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: "16px",
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
-        cursor: disabled || isLoading ? "not-allowed" : "pointer",
         opacity: disabled || isLoading ? 0.6 : 1,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "12px",
-        minHeight: "48px",
-        width: "100%",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
-        transition: "all 0.2s ease",
+        pointerEvents: disabled || isLoading ? "none" : "auto",
+        transition: "opacity 0.2s ease",
       }}
     >
-      {isLoading ? (
-        <span>TRAITEMENT...</span>
-      ) : (
-        <>
-          {/* Logo Google "G" minimaliste */}
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 48 48"
-            aria-hidden="true"
-          >
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          </svg>
-          <span>{buttonText}</span>
-        </>
-      )}
-    </button>
+      <GPay
+        environment={
+          process.env.NODE_ENV === "production" ? "PRODUCTION" : "TEST"
+        }
+        paymentRequest={paymentRequest}
+        buttonColor="black"
+        buttonType="pay"
+        buttonSizeMode="fill"
+        buttonRadius={8}
+        buttonLocale="fr"
+        onClick={handleClick}
+        onCancel={() => onCancel?.()}
+        onError={(error) => onError?.(String(error))}
+        style={{ width: "100%", minHeight: 48 }}
+      />
+    </div>
   );
 }
 
