@@ -8,6 +8,7 @@ export function createClient() {
       auth: {
         persistSession: true,
         detectSessionInUrl: true,
+        flowType: 'pkce',
       },
       global: {
         fetch: fetch,
