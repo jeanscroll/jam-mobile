@@ -22,7 +22,6 @@
     "@capacitor/cli": "^7.4.5",
     "@capacitor/core": "^7.4.5",
     "@capacitor/ios": "^7.4.5",
-    "@google-pay/button-react": "^3.2.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@heroui/react": "^2.7.5",
     "@mapbox/mapbox-gl-directions": "^4.3.1",
