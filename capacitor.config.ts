@@ -15,8 +15,8 @@ const config: CapacitorConfig = {
     Stripe: {
       publishableKey: STRIPE_PUBLISHABLE_KEY,
       merchantIdentifier: 'merchant.jam.mobile',
-      enableGooglePay: true,
-      enableApplePay: true,
+      enableGooglePay: false,
+      enableApplePay: false,
       countryCode: 'FR',
       merchantDisplayName: 'JAM Mobile',
     },
