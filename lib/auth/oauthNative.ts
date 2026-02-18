@@ -42,75 +42,77 @@ export function initializeOAuthListener(
   }
 
   let listenerHandle: { remove: () => Promise<void> } | null = null;
+  let isProcessing = false;
 
   App.addListener("appUrlOpen", async (event: URLOpenListenerEvent) => {
     console.log("App URL opened:", event.url);
-    alert("[DEBUG 1] appUrlOpen: " + event.url);
 
     // Check if this is our OAuth callback
-    if (event.url.startsWith("com.jam.mobile://auth/callback")) {
+    if (!event.url.startsWith("com.jam.mobile://auth/callback")) return;
+
+    // Ignore duplicate callbacks (browser can fire twice)
+    if (isProcessing) {
+      console.log("OAuth callback already processing, ignoring duplicate");
+      return;
+    }
+
+    // Ignore error callbacks if a code callback already came through
+    const urlParams = new URL(event.url).searchParams;
+    if (urlParams.get("error")) {
+      console.warn("OAuth callback error from server:", urlParams.get("error_description"));
+      return;
+    }
+
+    const code = urlParams.get("code");
+    if (!code) {
+      // Check hash fragment (implicit flow fallback)
+      const hashParams = new URLSearchParams(event.url.split("#")[1] || "");
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (!accessToken) {
+        onError(new Error("No authorization code or tokens found in callback URL"));
+        return;
+      }
+
+      isProcessing = true;
       try {
-        // Close the browser window
-        await Browser.close();
-
-        // Parse the URL to extract the auth code or tokens
-        const url = new URL(event.url);
-
-        // Supabase uses PKCE flow with code
-        const code = url.searchParams.get("code");
-        const errorParam = url.searchParams.get("error");
-        const errorDescription = url.searchParams.get("error_description");
-
-        alert("[DEBUG 2] code=" + (code ? code.substring(0, 10) + "..." : "null") + " | error=" + errorParam);
-
-        if (errorParam) {
-          throw new Error(errorDescription || errorParam);
-        }
-
-        if (code) {
-          // Exchange the code for a session
-          const supabase = createClient();
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-          alert("[DEBUG 3] exchangeCode: error=" + (error ? error.message : "null") + " | session=" + (data?.session ? "OK" : "null"));
-
-          if (error) {
-            throw error;
-          }
-
-          console.log("OAuth session established successfully");
-          onSuccess();
-        } else {
-          // Check for hash fragment (implicit flow fallback)
-          const hashParams = new URLSearchParams(event.url.split("#")[1] || "");
-          const accessToken = hashParams.get("access_token");
-          const refreshToken = hashParams.get("refresh_token");
-
-          alert("[DEBUG 2b] hash flow: accessToken=" + (accessToken ? "present" : "null"));
-
-          if (accessToken) {
-            const supabase = createClient();
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || "",
-            });
-
-            if (error) {
-              throw error;
-            }
-
-            console.log("OAuth session established via tokens");
-            onSuccess();
-          } else {
-            throw new Error("No authorization code or tokens found in callback URL");
-          }
-        }
+        Browser.close().catch(() => {});
+        const supabase = createClient();
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || "",
+        });
+        if (error) throw error;
+        onSuccess();
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        alert("[DEBUG ERROR] " + msg);
         console.error("OAuth callback error:", error);
         onError(error instanceof Error ? error : new Error(String(error)));
+      } finally {
+        isProcessing = false;
       }
+      return;
+    }
+
+    // Process the code exchange
+    isProcessing = true;
+    // Close browser without blocking
+    Browser.close().catch(() => {});
+
+    try {
+      const supabase = createClient();
+
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+      if (error) throw error;
+
+      console.log("OAuth session established successfully");
+      onSuccess();
+    } catch (error) {
+      console.error("OAuth callback error:", error);
+      onError(error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      isProcessing = false;
     }
   }).then((handle) => {
     listenerHandle = handle;
