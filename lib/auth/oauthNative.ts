@@ -45,6 +45,7 @@ export function initializeOAuthListener(
 
   App.addListener("appUrlOpen", async (event: URLOpenListenerEvent) => {
     console.log("App URL opened:", event.url);
+    alert("[DEBUG 1] appUrlOpen: " + event.url);
 
     // Check if this is our OAuth callback
     if (event.url.startsWith("com.jam.mobile://auth/callback")) {
@@ -60,6 +61,8 @@ export function initializeOAuthListener(
         const errorParam = url.searchParams.get("error");
         const errorDescription = url.searchParams.get("error_description");
 
+        alert("[DEBUG 2] code=" + (code ? code.substring(0, 10) + "..." : "null") + " | error=" + errorParam);
+
         if (errorParam) {
           throw new Error(errorDescription || errorParam);
         }
@@ -67,7 +70,9 @@ export function initializeOAuthListener(
         if (code) {
           // Exchange the code for a session
           const supabase = createClient();
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+          alert("[DEBUG 3] exchangeCode: error=" + (error ? error.message : "null") + " | session=" + (data?.session ? "OK" : "null"));
 
           if (error) {
             throw error;
@@ -80,6 +85,8 @@ export function initializeOAuthListener(
           const hashParams = new URLSearchParams(event.url.split("#")[1] || "");
           const accessToken = hashParams.get("access_token");
           const refreshToken = hashParams.get("refresh_token");
+
+          alert("[DEBUG 2b] hash flow: accessToken=" + (accessToken ? "present" : "null"));
 
           if (accessToken) {
             const supabase = createClient();
@@ -99,6 +106,8 @@ export function initializeOAuthListener(
           }
         }
       } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        alert("[DEBUG ERROR] " + msg);
         console.error("OAuth callback error:", error);
         onError(error instanceof Error ? error : new Error(String(error)));
       }
