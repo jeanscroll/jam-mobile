@@ -26,10 +26,13 @@ function MyApp({ Component, pageProps }: AppProps) {
         if (!isNativePlatform()) return;
 
         const cleanup = initializeOAuthListener(
-            // onSuccess callback
+            // onSuccess callback — use window.location.href instead of router.replace
+            // to force a full page reload. This is needed because plasmic-supabase's
+            // SupabaseUserGlobalContext only checks the session once on mount (useEffect []).
+            // A client-side navigation (router.replace) wouldn't re-mount it.
             () => {
                 console.log("OAuth successful, navigating to home");
-                router.replace("/");
+                window.location.href = "/";
             },
             // onError callback
             (error) => {

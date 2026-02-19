@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
-import { createClient } from "@/utils/supabase/components";
+import { createClient, syncSessionToCookies } from "@/utils/supabase/components";
 
 // Constants
 const OAUTH_CALLBACK_URL = "com.jam.mobile://auth/callback";
@@ -84,6 +84,10 @@ export function initializeOAuthListener(
           refresh_token: refreshToken || "",
         });
         if (error) throw error;
+
+        // Sync session to cookies so plasmic-supabase's SupabaseUserGlobalContext can find it
+        await syncSessionToCookies(accessToken, refreshToken || "");
+
         onSuccess();
       } catch (error) {
         console.error("OAuth callback error:", error);
@@ -105,6 +109,11 @@ export function initializeOAuthListener(
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) throw error;
+
+      // Sync session to cookies so plasmic-supabase's SupabaseUserGlobalContext can find it
+      if (data.session) {
+        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+      }
 
       console.log("OAuth session established successfully");
       onSuccess();

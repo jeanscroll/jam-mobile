@@ -5,9 +5,11 @@ import { Capacitor } from '@capacitor/core'
 let nativeClient: SupabaseClient | null = null
 
 export function createClient() {
-  // On native (iOS/Android), use supabase-js directly with localStorage
-  // because @supabase/ssr stores PKCE code_verifier in cookies,
-  // which don't persist correctly in Capacitor WebViews
+  // On native (iOS/Android), use supabase-js directly with localStorage.
+  // Cookies don't persist in Capacitor WebViews when the app goes to background
+  // (e.g. during OAuth browser flow), which breaks PKCE code_verifier storage.
+  // After OAuth succeeds, the session is synced to cookies in oauthNative.ts
+  // so that plasmic-supabase's SupabaseUserGlobalContext (cookie-based) can find it.
   if (Capacitor.isNativePlatform()) {
     if (!nativeClient) {
       nativeClient = createJsClient(
@@ -41,4 +43,23 @@ export function createClient() {
       },
     }
   )
+}
+
+/**
+ * Sync a session to cookie storage so that plasmic-supabase's
+ * SupabaseUserGlobalContext (which uses createBrowserClient / document.cookie)
+ * can find the session established by the native localStorage-based client.
+ */
+export async function syncSessionToCookies(accessToken: string, refreshToken: string): Promise<void> {
+  const browserClient = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+  const { error } = await browserClient.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  })
+  if (error) {
+    console.warn('Failed to sync session to cookies:', error.message)
+  }
 }
