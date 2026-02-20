@@ -19,6 +19,7 @@ const publicRoutes = [
   '/accueil-employeur',
   '/mentions-legales',
   '/cgu',
+  '/published-standards',
 
   '/auth/oauth-callback',
   '/auth/auth-code-error',
