@@ -150,6 +150,7 @@ async function signInWithOAuthNative(
       options: {
         redirectTo: OAUTH_CALLBACK_URL,
         skipBrowserRedirect: true, // Don't let Supabase redirect, we'll do it manually
+        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
       },
     });
 

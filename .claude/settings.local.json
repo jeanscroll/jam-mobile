@@ -10,7 +10,8 @@
       "WebFetch(domain:developers.google.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:developers.googleblog.com)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:supabase.com)"
     ]
   }
 }

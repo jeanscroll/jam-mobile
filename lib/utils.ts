@@ -1,5 +1,6 @@
 import { type ClassArray, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { Capacitor } from "@capacitor/core"
 
 const cn = (...inputs: ClassArray) => twMerge(clsx(inputs));
 
@@ -10,4 +11,13 @@ const fileSize = (size: number) => {
     );
 }
 
-export { cn, fileSize }
+/**
+ * Returns the API base URL. On native (Capacitor), API routes don't exist
+ * locally so we must call the remote server.
+ */
+const getApiBaseUrl = () =>
+    Capacitor.isNativePlatform()
+        ? (process.env.NEXT_PUBLIC_API_BASE_URL || "https://job-around-me.com")
+        : "";
+
+export { cn, fileSize, getApiBaseUrl }

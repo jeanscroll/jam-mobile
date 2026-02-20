@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 
 import { presets } from "@/styles/presets";
+import { getApiBaseUrl } from "@/lib/utils";
 
 import AuthButton from "@/plasmic-library/buttons/ButtonGoogle/ButtonGoogle";
 import ButtonApple from "@/plasmic-library/buttons/ButtonApple/ButtonApple";
@@ -500,7 +501,7 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
 		};
 
 		try {
-			const response = await fetch("/api/supabase/verify-email", {
+			const response = await fetch(`${getApiBaseUrl()}/api/supabase/verify-email`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email }),

@@ -2,6 +2,7 @@ import * as React from "react";
 import type { HTMLElementRefOf } from "@plasmicapp/react-web";
 import { useCallback, useEffect, useState } from "react";
 import { presets } from "@/styles/presets";
+import { getApiBaseUrl } from "@/lib/utils";
 import Link from "next/link";
 import { EyeIcon, ViewIcon } from "@/plasmic-library/icons/icons";
 import AuthButton from "@/plasmic-library/buttons/ButtonGoogle/ButtonGoogle";
@@ -182,7 +183,7 @@ function Login_(
       setIsSubmitting(true);
 
       // Vérification préalable sans bloquer la soumission finale
-      const response = await fetch('/api/supabase/verify-login', {
+      const response = await fetch(`${getApiBaseUrl()}/api/supabase/verify-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
