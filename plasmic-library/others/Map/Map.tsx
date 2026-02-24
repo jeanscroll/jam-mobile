@@ -132,7 +132,7 @@ const Mapbox: React.FC<MapboxProps> = ({
 		// Ajouter les nouveaux marqueurs uniquement si markers est non vide
 		if (markers.length === 0) return;
 
-		markers.forEach((data) => {
+		markers.filter(Boolean).forEach((data) => {
 			const {
 				id,
 				latitude,

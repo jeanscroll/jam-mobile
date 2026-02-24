@@ -1,15 +1,45 @@
 import * as React from "react";
 import {
   PlasmicComponent,
-  extractPlasmicQueryData,
   type ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
 import type { GetStaticPaths, GetStaticProps } from "next";
 
-import Error from "next/error";
+import NextError from "next/error";
 import { useRouter } from "next/router";
 import { PLASMIC } from "@/plasmic-init";
+
+// Error boundary to catch Plasmic data context errors (e.g. accessing
+// properties on undefined when dynamic data hasn't loaded yet)
+class PlasmicErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error) {
+    console.warn("PLASMIC: Render error caught by boundary:", error.message);
+  }
+  componentDidUpdate(prevProps: { children: React.ReactNode }) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      // Re-render on next tick when data becomes available
+      setTimeout(() => this.setState({ hasError: false }), 100);
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 export default function PlasmicLoaderPage(props: {
   plasmicData?: ComponentRenderData;
@@ -18,7 +48,7 @@ export default function PlasmicLoaderPage(props: {
   const { plasmicData, queryCache } = props;
   const router = useRouter();
   if (!plasmicData || plasmicData.entryCompMetas.length === 0) {
-    return <Error statusCode={404} />;
+    return <NextError statusCode={404} />;
   }
   const pageMeta = plasmicData.entryCompMetas[0];
   return (
@@ -30,7 +60,9 @@ export default function PlasmicLoaderPage(props: {
       pageParams={pageMeta.params}
       pageQuery={router.query}
     >
-      <PlasmicComponent component={pageMeta.displayName} />
+      <PlasmicErrorBoundary>
+        <PlasmicComponent component={pageMeta.displayName} />
+      </PlasmicErrorBoundary>
     </PlasmicRootProvider>
   );
 }
@@ -43,32 +75,16 @@ export const getStaticProps: GetStaticProps = async (context) => {
     // non-Plasmic catch-all
     return { props: {} };
   }
-  const pageMeta = plasmicData.entryCompMetas[0];
-  // Cache the necessary data fetched for the page
-  // Wrapped in try-catch to handle SSR errors in components
-  let queryCache: Record<string, unknown> = {};
-  try {
-    queryCache = await extractPlasmicQueryData(
-      <PlasmicRootProvider
-        loader={PLASMIC}
-        prefetchedData={plasmicData}
-        pageRoute={pageMeta.path}
-        pageParams={pageMeta.params}
-      >
-        <PlasmicComponent component={pageMeta.displayName} />
-      </PlasmicRootProvider>
-    );
-  } catch (error) {
-    console.warn(`PLASMIC: Failed to extract query data for ${pageMeta.displayName}:`, error);
-    // Continue without query cache - data will be fetched client-side
-  }
-  // Pas de revalidate en mode export statique (Capacitor)
   const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
-  if (isCapacitorBuild) {
-    return { props: { plasmicData, queryCache } };
-  }
-  // Use revalidate for ISR in server mode
-  return { props: { plasmicData, queryCache }, revalidate: 60 };
+
+  // Skip extractPlasmicQueryData entirely:
+  // All pages depend on dynamic Supabase data (user session, job offers, etc.)
+  // which is unavailable during SSR, causing errors and 10-17s wasted time.
+  // Data is fetched client-side by PlasmicRootProvider automatically.
+  return {
+    props: { plasmicData, queryCache: {} },
+    ...(!isCapacitorBuild && { revalidate: 300 }),
+  };
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
