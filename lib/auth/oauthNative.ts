@@ -47,8 +47,10 @@ export function initializeOAuthListener(
   App.addListener("appUrlOpen", async (event: URLOpenListenerEvent) => {
     console.log("App URL opened:", event.url);
 
-    // Check if this is our OAuth callback
-    if (!event.url.startsWith("com.jam.mobile://auth/callback")) return;
+    // Check if this is our OAuth or email verification callback
+    const isOAuthCallback = event.url.startsWith("com.jam.mobile://auth/callback");
+    const isEmailCallback = event.url.startsWith("com.jam.mobile://auth/email-callback");
+    if (!isOAuthCallback && !isEmailCallback) return;
 
     // Ignore duplicate callbacks (browser can fire twice)
     if (isProcessing) {

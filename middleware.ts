@@ -22,6 +22,7 @@ const publicRoutes = [
   '/published-standards',
 
   '/auth/oauth-callback',
+  '/auth/email-callback',
   '/auth/auth-code-error',
   '/auth/after-login-ok',
 
