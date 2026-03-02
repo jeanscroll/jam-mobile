@@ -76,6 +76,9 @@ export interface SignUpProps {
 	buttonAbordStyle?: "primary" | "secondary" | "tertiary";
 	submitButtonText?: string;
 
+	// Redirect
+	successRedirectUrl?: string;
+
 	// OAuth
 	googleButtonText?: string;
 	appleButtonText?: string;
@@ -160,6 +163,9 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
 
 		// OAuth redirect
 		redirectTo = "/auth/oauth-callback",
+
+		// Success redirect (undefined = no redirect)
+		successRedirectUrl,
 
 		// Links
 		loginLinkText = "Déjà inscrit(e) ? CONNEXION",
@@ -522,10 +528,12 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
 				await onSubmit(e, formData);
 				addAlert("success", errorMessages.signupSuccess);
 
-				// Redirection après succès
-				setTimeout(() => {
-					router.push("/login");
-				}, 1500);
+				// Redirection après succès (seulement si une URL est définie)
+				if (successRedirectUrl) {
+					setTimeout(() => {
+						router.push(successRedirectUrl);
+					}, 1500);
+				}
 			} catch (error) {
 				console.error("Erreur lors de l'inscription:", error);
 				addAlert("error", errorMessages.networkError);
