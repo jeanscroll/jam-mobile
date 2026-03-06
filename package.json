@@ -12,7 +12,8 @@
     "cap:open:ios": "npx cap open ios",
     "cap:open:android": "npx cap open android",
     "mobile:build": "npm run build:capacitor && npm run cap:sync",
-    "appflow:build": "npm run build:capacitor && npx cap sync"
+    "appflow:build": "npm run build:capacitor && npx cap sync",
+    "generate:assets": "npx @capacitor/assets generate --assetPath resources --ios"
   },
   "dependencies": {
     "@capacitor-community/stripe": "^7.2.2",
@@ -61,6 +62,7 @@
     "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^20.6.3",
     "@types/react": "^18.2.15",
