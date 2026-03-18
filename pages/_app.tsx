@@ -65,7 +65,7 @@ function MyApp({ Component, pageProps }: AppProps) {
             <>
                 <Head>
                     <link rel="manifest" href="/manifest.json" />
-                </Head>
+</Head>
                 <PostHogPageView />
                 <Component {...pageProps} />
                 <CrispChat />
