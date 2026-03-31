@@ -66,9 +66,10 @@ const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
                     if (!result.success) {
                         console.error("Login error:", result.error);
                     } else {
-                        console.log("OAuth flow initiated successfully");
-                        // For native, the actual login completion happens
-                        // via the deep link listener in _app.tsx
+                        console.log("OAuth sign-in successful");
+                        // Native SDK flow completes inline (no deep link needed)
+                        // Force full page reload so SupabaseUserGlobalContext re-mounts
+                        window.location.href = redirectTo || "/";
                     }
                 } catch (err) {
                     console.error("Unexpected error:", err);

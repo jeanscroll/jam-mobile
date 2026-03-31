@@ -2,6 +2,9 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
 
+include ':capacitor-community-apple-sign-in'
+project(':capacitor-community-apple-sign-in').projectDir = new File('../node_modules/@capacitor-community/apple-sign-in/android')
+
 include ':capacitor-community-stripe'
 project(':capacitor-community-stripe').projectDir = new File('../node_modules/@capacitor-community/stripe/android')
 
@@ -10,3 +13,6 @@ project(':capacitor-app').projectDir = new File('../node_modules/@capacitor/app/
 
 include ':capacitor-browser'
 project(':capacitor-browser').projectDir = new File('../node_modules/@capacitor/browser/android')
+
+include ':southdevs-capacitor-google-auth'
+project(':southdevs-capacitor-google-auth').projectDir = new File('../node_modules/@southdevs/capacitor-google-auth/android')

@@ -12,11 +12,18 @@ const config: CapacitorConfig = {
     iosScheme: 'capacitor',
   },
   plugins: {
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      // TODO: Remplacer par votre Client ID Web Google (depuis Google Cloud Console > Credentials > OAuth 2.0)
+      // C'est le MEME client ID Web configuré dans Supabase > Authentication > Providers > Google
+      serverClientId: '245770560145-efjb7lm8247kpbe4ojakh9u6ape4val5.apps.googleusercontent.com',
+      forceCodeForRefreshToken: false,
+    },
     Stripe: {
       publishableKey: STRIPE_PUBLISHABLE_KEY,
       merchantIdentifier: 'merchant.jam.mobile',
       enableGooglePay: false,
-      enableApplePay: false,
+      enableApplePay: true,
       countryCode: 'FR',
       merchantDisplayName: 'JAM Mobile',
     },

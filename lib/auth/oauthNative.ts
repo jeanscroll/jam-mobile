@@ -29,7 +29,7 @@ export function getOAuthRedirectUrl(): string {
 }
 
 /**
- * Initialize the deep link listener for OAuth callbacks
+ * Initialize the deep link listener for OAuth callbacks (email verification, etc.)
  * Call this once in _app.tsx or a root component
  */
 export function initializeOAuthListener(
@@ -138,43 +138,83 @@ export function initializeOAuthListener(
 }
 
 /**
- * Perform OAuth sign-in for native platforms
+ * Native Apple Sign In using ASAuthorizationController (no browser)
  */
-async function signInWithOAuthNative(
-  provider: "google" | "apple"
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
-
+async function signInWithAppleNative(): Promise<{ success: boolean; error?: string }> {
   try {
-    // Generate the OAuth URL with PKCE
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: OAUTH_CALLBACK_URL,
-        skipBrowserRedirect: true, // Don't let Supabase redirect, we'll do it manually
-        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
-      },
+    const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
+
+    const result = await SignInWithApple.authorize({
+      clientId: "com.jam.mobile",
+      redirectURI: OAUTH_CALLBACK_URL,
+      scopes: "email name",
+      state: "",
+      nonce: "",
     });
 
-    if (error) {
-      throw error;
+    const identityToken = result.response.identityToken;
+    if (!identityToken) {
+      throw new Error("No identity token returned from Apple Sign In");
     }
 
-    if (!data.url) {
-      throw new Error("No OAuth URL returned from Supabase");
-    }
-
-    console.log("Opening OAuth URL in browser");
-
-    // Open the OAuth URL in the system browser
-    await Browser.open({
-      url: data.url,
-      presentationStyle: "popover",
+    // Exchange the Apple identity token with Supabase
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: "apple",
+      token: identityToken,
     });
 
+    if (error) throw error;
+
+    // Sync session to cookies for Plasmic
+    if (data.session) {
+      await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+    }
+
+    console.log("Apple native sign-in successful");
     return { success: true };
   } catch (error) {
-    console.error("OAuth native error:", error);
+    console.error("Apple native sign-in error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Native Google Sign In using Google SDK (no browser)
+ */
+async function signInWithGoogleNative(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
+
+    await GoogleAuth.initialize();
+    const googleUser = await GoogleAuth.signIn({ scopes: ["profile", "email"] });
+
+    const idToken = googleUser.authentication.idToken;
+    if (!idToken) {
+      throw new Error("No ID token returned from Google Sign In");
+    }
+
+    // Exchange the Google ID token with Supabase
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: idToken,
+    });
+
+    if (error) throw error;
+
+    // Sync session to cookies for Plasmic
+    if (data.session) {
+      await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+    }
+
+    console.log("Google native sign-in successful");
+    return { success: true };
+  } catch (error) {
+    console.error("Google native sign-in error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -184,13 +224,18 @@ async function signInWithOAuthNative(
 
 /**
  * Perform OAuth sign-in - works on both web and native
+ * Native: uses native SDKs (no browser opened)
+ * Web: uses standard Supabase OAuth redirect
  */
 export async function signInWithOAuth(
   provider: "google" | "apple",
   webRedirectTo?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (isNativePlatform()) {
-    return signInWithOAuthNative(provider);
+    if (provider === "apple") {
+      return signInWithAppleNative();
+    }
+    return signInWithGoogleNative();
   }
 
   // Web flow - use standard Supabase redirect
