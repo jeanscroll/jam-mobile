@@ -160,11 +160,8 @@ jobs:
             -configuration Release \
             -archivePath build/App.xcarchive \
             -destination 'generic/platform=iOS' \
-            CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            PRODUCT_BUNDLE_IDENTIFIER=com.jam.mobile \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME"
+            CODE_SIGN_IDENTITY="Apple Distribution"
 
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
