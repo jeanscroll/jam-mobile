@@ -53,3 +53,4 @@ plasmic-init-old.ts
 resources/ios/**/*
 resources/android/**/*
 certificates
+certif_apple/
