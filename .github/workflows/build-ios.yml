@@ -61,6 +61,11 @@ jobs:
       - name: Sync Capacitor iOS
         run: npx cap sync ios
 
+      - name: Patch GoogleSignIn version for privacy manifest
+        run: |
+          sed -i '' "s/GoogleSignIn', '~> 6.2.4'/GoogleSignIn', '~> 8.0'/" node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
+          cat node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
+
       - name: Install CocoaPods
         working-directory: ios/App
         run: pod install

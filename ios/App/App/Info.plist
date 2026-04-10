@@ -60,5 +60,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Cette application peut utiliser la caméra pour scanner des cartes de paiement.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
