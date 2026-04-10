@@ -63,6 +63,11 @@ jobs:
           sed -i '' "s/GoogleSignIn', '~> 6.2.4'/GoogleSignIn', '~> 8.0'/" node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
           cat node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
 
+      - name: Patch Google Auth plugin for GoogleSignIn 8.x API
+        run: |
+          cp patches/capacitor-google-auth-Plugin.swift node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
+          echo "Plugin.swift patched"
+
       - name: Sync Capacitor iOS
         run: npx cap sync ios
 
