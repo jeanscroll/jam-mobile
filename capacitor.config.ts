@@ -14,8 +14,7 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      // TODO: Remplacer par votre Client ID Web Google (depuis Google Cloud Console > Credentials > OAuth 2.0)
-      // C'est le MEME client ID Web configuré dans Supabase > Authentication > Providers > Google
+      iosClientId: '245770560145-pfll9kc88lhach85fp9r8l563ogcesph.apps.googleusercontent.com',
       serverClientId: '245770560145-efjb7lm8247kpbe4ojakh9u6ape4val5.apps.googleusercontent.com',
       forceCodeForRefreshToken: false,
     },
