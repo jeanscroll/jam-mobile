@@ -31,11 +31,19 @@ permissions:
 jobs:
   build-ios:
     name: Build iOS
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          ls /Applications/ | grep Xcode
+          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $LATEST_XCODE"
+          sudo xcode-select -s "$LATEST_XCODE"
+          xcodebuild -version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
