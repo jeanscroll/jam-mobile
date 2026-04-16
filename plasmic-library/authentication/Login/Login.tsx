@@ -7,6 +7,7 @@ import Link from "next/link";
 import { EyeIcon, ViewIcon } from "@/plasmic-library/icons/icons";
 import AuthButton from "@/plasmic-library/buttons/ButtonGoogle/ButtonGoogle";
 import ButtonApple from "@/plasmic-library/buttons/ButtonApple/ButtonApple";
+import { Capacitor } from "@capacitor/core";
 
 export interface LoginProps {
   // Wrapper
@@ -87,7 +88,7 @@ function Login_(
     placeholderPassword = "Entrez votre mot de passe",
     eyeIconColor = "#666",
 
-    redirectTo= "/auth/oauth-callback",
+    redirectTo= "/",
 
     // Links
     forgotPasswordText = "Mot de passe oublié ?",
@@ -224,10 +225,12 @@ function Login_(
     }
   };
 
+  const isAndroid = Capacitor.getPlatform() === "android";
+
   // Rendu des boutons OAuth
   const renderOAuthButtons = () => {
     if (!showGoogleButton && !showAppleButton) return null;
-    
+
     return (
       <div style={presets.oAuthButtons as React.CSSProperties}>
         {showGoogleButton && (
@@ -241,7 +244,7 @@ function Login_(
           />
         )}
 
-        {showAppleButton && (
+        {showAppleButton && !isAndroid && (
           <ButtonApple
             label={appleButtonText}
             icon="start"
@@ -251,7 +254,7 @@ function Login_(
             redirectTo={redirectTo}
           />
         )}
-       
+
       </div>
     );
   };

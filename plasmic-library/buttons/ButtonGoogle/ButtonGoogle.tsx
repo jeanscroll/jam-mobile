@@ -63,10 +63,13 @@ const AuthButton = forwardRef<ButtonActions, ButtonProps>(
                     if (!result.success) {
                         console.error("Login error:", result.error);
                     } else {
-                        console.log("OAuth sign-in successful");
+                        console.log("OAuth sign-in successful, redirectTo:", redirectTo);
                         // Native SDK flow completes inline (no deep link needed)
                         // Force full page reload so SupabaseUserGlobalContext re-mounts
-                        window.location.href = redirectTo || "/";
+                        const target = redirectTo || "/";
+                        // Ensure we never open an external browser — use relative path only
+                        const safePath = target.startsWith("/") ? target : "/";
+                        window.location.href = safePath;
                     }
                 } catch (err) {
                     console.error("Unexpected error:", err);

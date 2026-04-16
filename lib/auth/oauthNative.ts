@@ -189,7 +189,12 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
   try {
     const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
 
-    await GoogleAuth.initialize();
+    // requestIdToken() must receive the Web client ID (serverClientId), not the Android client ID
+    await GoogleAuth.initialize({
+      clientId: "245770560145-efjb7lm8247kpbe4ojakh9u6ape4val5.apps.googleusercontent.com",
+      scopes: ["profile", "email"],
+      grantOfflineAccess: false,
+    });
     const googleUser = await GoogleAuth.signIn({ scopes: ["profile", "email"] });
 
     const idToken = googleUser.authentication.idToken;
@@ -213,8 +218,8 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
 
     console.log("Google native sign-in successful");
     return { success: true };
-  } catch (error) {
-    console.error("Google native sign-in error:", error);
+  } catch (error: any) {
+    console.error("Google native sign-in error:", error?.message, "code:", error?.code, "status:", error?.status);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -232,10 +237,15 @@ export async function signInWithOAuth(
   webRedirectTo?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (isNativePlatform()) {
+    const platform = Capacitor.getPlatform();
     if (provider === "apple") {
-      return signInWithAppleNative();
+      if (platform === "ios") {
+        return signInWithAppleNative();
+      }
+      // Apple Sign-In native SDK not available on Android — fall through to web OAuth
+    } else if (provider === "google") {
+      return signInWithGoogleNative();
     }
-    return signInWithGoogleNative();
   }
 
   // Web flow - use standard Supabase redirect
