@@ -2,6 +2,8 @@ import * as React from "react";
 import type { HTMLElementRefOf } from "@plasmicapp/react-web";
 import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { ConfirmModal } from "./ConfirmModal";
 
 export interface StripeSubscriptionButtonProps {
@@ -63,6 +65,11 @@ function StripeSubscriptionButton_(
     try {
       if (stripeAction === "cancel" && !customerId) {
         throw new Error("customerId requis pour annuler l'abonnement");
+      }
+
+      if (stripeAction === "create" && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
+        await Browser.open({ url: "https://job-around-me.com/offre-employeur" });
+        return;
       }
 
       if (stripeAction === "cancel") {

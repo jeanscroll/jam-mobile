@@ -67,7 +67,9 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Cette application peut utiliser la caméra pour scanner des cartes de paiement.</string>
+	<string>Cette application utilise la caméra pour prendre des photos et vidéos de profil.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Cette application utilise le microphone pour enregistrer des vidéos de profil.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
