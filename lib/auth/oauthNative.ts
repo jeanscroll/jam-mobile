@@ -191,7 +191,6 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
 
     // requestIdToken() must receive the Web client ID (serverClientId), not the Android client ID
     await GoogleAuth.initialize({
-      clientId: "245770560145-efjb7lm8247kpbe4ojakh9u6ape4val5.apps.googleusercontent.com",
       scopes: ["profile", "email"],
       grantOfflineAccess: false,
     });
