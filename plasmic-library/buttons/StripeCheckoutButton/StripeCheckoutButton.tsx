@@ -2,6 +2,8 @@ import * as React from "react";
 import type { HTMLElementRefOf } from "@plasmicapp/react-web";
 import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 export interface StripeItem {
   price: string;
@@ -41,6 +43,11 @@ function StripeCheckoutButton_(
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
+      await Browser.open({ url: "https://job-around-me.com/offre-employeur" });
+      return;
+    }
+
     setLoading(true);
     try {
       const filteredItems = items.filter((item) => item.quantity > 0);

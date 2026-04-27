@@ -92,8 +92,10 @@ export default function ApplePayButton({
     }
   }, [validItems, customerEmail, customerId, metadata, onSuccess, onError, onCancel, isLoading]);
 
-  // Ne rien afficher si en cours de vérification ou non disponible
-  if (checkingAvailability || !isAvailable) {
+  if (checkingAvailability) {
+    return <div style={{ minHeight: "48px", width: "100%" }} />;
+  }
+  if (!isAvailable) {
     return null;
   }
 
