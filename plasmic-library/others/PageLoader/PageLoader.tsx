@@ -9,7 +9,7 @@ export interface PageLoaderProps {
 }
 
 function PageLoader_(props: PageLoaderProps, ref: HTMLElementRefOf<"div">) {
-  const { shouldRun = true, onMount } = props;
+  const { shouldRun = false, onMount } = props;
 
   useEffect(() => {
     if (shouldRun && onMount) {
