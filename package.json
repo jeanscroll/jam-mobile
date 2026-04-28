@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4699",
+    "dev": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 next dev -p 4699",
     "build": "next build",
-    "build:capacitor": "cross-env CAPACITOR_BUILD=true next build",
+    "build:capacitor": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 CAPACITOR_BUILD=true next build",
     "start": "next start",
     "lint": "next lint",
     "cap:sync": "npx cap sync",
