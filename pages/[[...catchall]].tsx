@@ -87,6 +87,11 @@ export const getStaticProps: GetStaticProps = async (context) => {
   };
 }
 
+// Plasmic pages overridden by a physical file in /pages must be excluded from
+// the catchall's static paths, otherwise next export fails with
+// "Conflicting paths returned from getStaticPaths".
+const PLASMIC_OVERRIDES = new Set<string>(["/parametres-abonnement"]);
+
 export const getStaticPaths: GetStaticPaths = async () => {
   // Pour l'export statique (Capacitor), on doit générer les pages à l'avance
   // fallback: false est requis pour next export
@@ -96,9 +101,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
     // Récupérer toutes les pages Plasmic pour l'export statique
     const pageModules = await PLASMIC.fetchPages();
     return {
-      paths: pageModules.map((mod) => ({
-        params: { catchall: mod.path === '/' ? undefined : mod.path.substring(1).split('/') },
-      })),
+      paths: pageModules
+        .filter((mod) => !PLASMIC_OVERRIDES.has(mod.path))
+        .map((mod) => ({
+          params: { catchall: mod.path === '/' ? undefined : mod.path.substring(1).split('/') },
+        })),
       fallback: false,
     };
   }

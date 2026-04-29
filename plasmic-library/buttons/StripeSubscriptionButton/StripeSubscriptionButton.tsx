@@ -4,6 +4,7 @@ import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
+import { getApiBaseUrl } from "@/lib/utils";
 import { ConfirmModal } from "./ConfirmModal";
 
 export interface StripeSubscriptionButtonProps {
@@ -27,6 +28,13 @@ export interface StripeSubscriptionButtonProps {
   cancelButtonSlot?: React.ReactNode;
   modalPosition?: "top" | "middle" | "bottom";
   showConfirmationModal?: boolean;
+
+  /**
+   * On iOS, App Store Review rejects in-app non-IAP subscriptions. For the
+   * "create" action the button opens this URL in the system browser instead
+   * of starting Stripe Checkout. Defaults to the employer offer page.
+   */
+  iosFallbackUrl?: string;
 }
 
 function StripeSubscriptionButton_(
@@ -53,6 +61,7 @@ function StripeSubscriptionButton_(
     cancelButtonSlot,
     modalPosition = "middle",
     showConfirmationModal = true,
+    iosFallbackUrl,
   } = props;
 
   const [loading, setLoading] = useState(false);
@@ -68,12 +77,14 @@ function StripeSubscriptionButton_(
       }
 
       if (stripeAction === "create" && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-        await Browser.open({ url: "https://job-around-me.com/offre-employeur" });
+        await Browser.open({
+          url: iosFallbackUrl || "https://job-around-me.com/offre-employeur",
+        });
         return;
       }
 
       if (stripeAction === "cancel") {
-        const res = await fetch("/api/stripe/manage-subscription", {
+        const res = await fetch(`${getApiBaseUrl()}/api/stripe/manage-subscription`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "cancel", customerEmail, customerId }),
@@ -92,7 +103,7 @@ function StripeSubscriptionButton_(
         );
         if (!stripe) throw new Error("Stripe.js non initialisé");
 
-        const res = await fetch("/api/stripe/manage-subscription", {
+        const res = await fetch(`${getApiBaseUrl()}/api/stripe/manage-subscription`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

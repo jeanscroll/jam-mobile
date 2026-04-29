@@ -13,6 +13,12 @@ import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
 import { initializeOAuthListener, isNativePlatform } from "@/lib/auth/oauthNative";
 
+// Routes where Crisp is hidden (its SDK conflicts with Weglot's i18n hooks
+// on some pages, throwing "Cannot read properties of undefined (reading '$i18n')").
+// The widget is hidden via Crisp's runtime API rather than unmounted, so it
+// stays initialised and reappears cleanly on other routes.
+const CRISP_DISABLED_ROUTES = ["/parametres-abonnement"];
+
 function MyApp({ Component, pageProps }: AppProps) {
     const router = useRouter();
 
@@ -68,7 +74,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 </Head>
                 <PostHogPageView />
                 <Component {...pageProps} />
-                <CrispChat />
+                <CrispChat disabledRoutes={CRISP_DISABLED_ROUTES} />
                 <WeglotScript />
             </>
         </PostHogProvider>

@@ -4,6 +4,7 @@ import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
+import { getApiBaseUrl } from "@/lib/utils";
 
 export interface StripeItem {
   price: string;
@@ -21,6 +22,13 @@ export interface StripeCheckoutButtonProps {
   className?: string;
   onSuccess?: () => void;
   onError?: (error: Error) => void;
+  /**
+   * On iOS, App Store Review rejects in-app purchases of digital content via
+   * non-IAP mechanisms (Stripe). Instead of opening Stripe Checkout, the
+   * button opens this URL in the system browser so the user can pay on the web.
+   * Defaults to the employer offer page for backwards compatibility.
+   */
+  iosFallbackUrl?: string;
 }
 
 function StripeCheckoutButton_(
@@ -38,13 +46,16 @@ function StripeCheckoutButton_(
     className,
     onSuccess,
     onError,
+    iosFallbackUrl,
   } = props;
 
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-      await Browser.open({ url: "https://job-around-me.com/offre-employeur" });
+      await Browser.open({
+        url: iosFallbackUrl || "https://job-around-me.com/offre-employeur",
+      });
       return;
     }
 
@@ -56,7 +67,7 @@ function StripeCheckoutButton_(
         return;
       }
 
-      const res = await fetch("/api/stripe/create-checkout-session", {
+      const res = await fetch(`${getApiBaseUrl()}/api/stripe/create-checkout-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
