@@ -191,6 +191,17 @@ export default function ParametresAbonnementPage() {
   const [monthly, setMonthly] = useState<MonthlyRecharges | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
+  // iOS Capacitor: hide all "calls to action for purchase outside of the app"
+  // to comply with App Store Review Guideline 3.1.3(d) (Free Stand-Alone Apps).
+  // Account-management actions (cancel, manage card, view counters & history)
+  // remain available — only the BUY/UPGRADE entry points are removed.
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    setIsIOS(
+      Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios"
+    );
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -468,6 +479,7 @@ export default function ParametresAbonnementPage() {
         isPremium={isPremium}
         hasActiveSubscription={!!hasActiveSubscription}
         isCanceled={isCanceled}
+        isIOS={isIOS}
         onChange={loadAll}
       />
 
@@ -476,6 +488,7 @@ export default function ParametresAbonnementPage() {
         monthly={monthly}
         prices={prices}
         userEmail={profile?.email ?? userEmail}
+        isIOS={isIOS}
         onChange={loadAll}
       />
 
@@ -519,6 +532,7 @@ type SubscriptionSectionProps = {
   isPremium: boolean;
   hasActiveSubscription: boolean;
   isCanceled: boolean;
+  isIOS: boolean;
   onChange: () => void;
 };
 
@@ -531,6 +545,7 @@ function SubscriptionSection({
   isPremium,
   hasActiveSubscription,
   isCanceled,
+  isIOS,
   onChange,
 }: SubscriptionSectionProps) {
   const basic = prices?.subscriptions.basic ?? null;
@@ -547,9 +562,11 @@ function SubscriptionSection({
 
       {hasActiveSubscription ? (
         <div>
-          <p className="mb-4 text-sm text-grey-600">
-            Plus d'annonces, plus de talents, passez à un niveau supérieur.
-          </p>
+          {!isIOS && (
+            <p className="mb-4 text-sm text-grey-600">
+              Plus d'annonces, plus de talents, passez à un niveau supérieur.
+            </p>
+          )}
           <p className="text-grey-700">
             Abonnement actuel :{" "}
             <span className="font-semibold text-pine-500">
@@ -557,7 +574,8 @@ function SubscriptionSection({
             </span>
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            {isBasic && premium && (
+            {/* Upgrade / downgrade CTAs hidden on iOS — App Store guideline 3.1.3(d). */}
+            {!isIOS && isBasic && premium && (
               <StripeSubscriptionButton
                 stripeAction="update"
                 priceId={premium.priceId}
@@ -578,7 +596,7 @@ function SubscriptionSection({
               </StripeSubscriptionButton>
             )}
 
-            {isPremium && basic && (
+            {!isIOS && isPremium && basic && (
               <StripeSubscriptionButton
                 stripeAction="update"
                 priceId={basic.priceId}
@@ -595,6 +613,7 @@ function SubscriptionSection({
               </StripeSubscriptionButton>
             )}
 
+            {/* Cancel is account management — explicitly allowed by 3.1.3. */}
             <StripeSubscriptionButton
               stripeAction="cancel"
               customerId={info?.customer_id ?? undefined}
@@ -607,6 +626,11 @@ function SubscriptionSection({
             </StripeSubscriptionButton>
           </div>
         </div>
+      ) : isIOS ? (
+        // No purchase CTAs on iOS — App Store 3.1.3(d) Free Stand-Alone Apps.
+        <p className="text-grey-700">
+          Aucun abonnement actif sur ce compte.
+        </p>
       ) : (
         <div>
           <p className="text-grey-700">
@@ -697,6 +721,7 @@ type RechargesSectionProps = {
   monthly: MonthlyRecharges | null;
   prices: PricesResponse | null;
   userEmail: string | null;
+  isIOS: boolean;
   onChange: () => void;
 };
 
@@ -744,6 +769,7 @@ function RechargesSection({
   monthly,
   prices,
   userEmail,
+  isIOS,
   onChange,
 }: RechargesSectionProps) {
   const [quantities, setQuantities] = useState<
@@ -802,7 +828,8 @@ function RechargesSection({
     <section className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-xl font-semibold text-pine-500">Recharges</h2>
 
-      {/* Compteurs courants (VOS ANNONCES) */}
+      {/* Compteurs courants (VOS ANNONCES) — always visible: this is account
+          information, not a purchase entry point. */}
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         {RECHARGE_DEFS.map((def) => (
           <CounterTile
@@ -813,97 +840,100 @@ function RechargesSection({
         ))}
       </div>
 
-      {/* 3 lignes panier */}
-      <div className="divide-y divide-grey-100 border-y border-grey-100">
-        {RECHARGE_DEFS.map((def) => {
-          const price = prices?.recharges[def.key] ?? null;
-          const qty = quantities[def.key];
-          const lineTotal = lineTotalCents(def.key);
-          return (
-            <div
-              key={def.key}
-              className="flex items-center gap-3 py-3 text-sm"
+      {/* On iOS, everything below is purchase UI — hidden to comply with
+          App Store Review guideline 3.1.3(d) (Free Stand-Alone Apps). */}
+      {!isIOS && (
+        <>
+          <div className="divide-y divide-grey-100 border-y border-grey-100">
+            {RECHARGE_DEFS.map((def) => {
+              const price = prices?.recharges[def.key] ?? null;
+              const qty = quantities[def.key];
+              const lineTotal = lineTotalCents(def.key);
+              return (
+                <div
+                  key={def.key}
+                  className="flex items-center gap-3 py-3 text-sm"
+                >
+                  <span
+                    className={cn(
+                      "h-2 w-2 shrink-0 rounded-full",
+                      DOT_COLOR[def.key]
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className="flex-1 text-pine-500">{def.productLabel}</span>
+                  <span className="w-12 text-right text-grey-700">
+                    {price?.amount != null
+                      ? formatPrice(price.amount, price.currency)
+                      : "—"}
+                  </span>
+                  <QuantityStepper
+                    value={qty}
+                    onChange={(v) => setQty(def.key, v)}
+                    disabled={!price}
+                  />
+                  <span className="w-16 text-right font-semibold text-pine-500">
+                    {formatPrice(lineTotal, price?.currency ?? "eur")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-5">
+            <label
+              htmlFor="recharge-promo"
+              className="text-xs font-medium uppercase tracking-wide text-grey-600"
             >
-              <span
-                className={cn("h-2 w-2 shrink-0 rounded-full", DOT_COLOR[def.key])}
-                aria-hidden="true"
+              Code promotionnel
+            </label>
+            <input
+              id="recharge-promo"
+              type="text"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+              placeholder="CODEPROMO"
+              className="mt-1 w-full rounded-md border border-grey-200 px-3 py-2 text-sm uppercase placeholder:text-grey-400 focus:border-pine-500 focus:outline-none"
+            />
+            <p className="mt-1 text-xs text-grey-600">
+              Vous pourrez le valider à l'étape de paiement.
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between rounded-md bg-lime-50 px-4 py-3">
+            <span className="text-sm font-semibold text-pine-500">Total</span>
+            <span className="text-sm font-bold text-pine-500">
+              {formatPrice(totalCents)} HT
+            </span>
+          </div>
+
+          <div className="mt-5 flex flex-col items-center gap-3">
+            <StripeCheckoutButton
+              items={checkoutItems}
+              customerEmail={userEmail ?? undefined}
+              clientReferenceId={info?.customer_id}
+              successUrl={RECHARGE_SUCCESS_PATH}
+              cancelUrl={RECHARGE_CANCEL_PATH}
+              iosFallbackUrl={IOS_FALLBACK_URL}
+              onSuccess={onChange}
+              disabled={!hasItems}
+            >
+              <PrimaryBtn disabled={!hasItems}>
+                Acheter les crédits →
+              </PrimaryBtn>
+            </StripeCheckoutButton>
+
+            {hasItems && info?.customer_id && (
+              <GooglePayButton
+                items={nativeItems}
+                customerId={info.customer_id}
+                customerEmail={userEmail ?? undefined}
+                onSuccess={onChange}
               />
-              <span className="flex-1 text-pine-500">{def.productLabel}</span>
-              <span className="w-12 text-right text-grey-700">
-                {price?.amount != null
-                  ? formatPrice(price.amount, price.currency)
-                  : "—"}
-              </span>
-              <QuantityStepper
-                value={qty}
-                onChange={(v) => setQty(def.key, v)}
-                disabled={!price}
-              />
-              <span className="w-16 text-right font-semibold text-pine-500">
-                {formatPrice(lineTotal, price?.currency ?? "eur")}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Code promo */}
-      <div className="mt-5">
-        <label
-          htmlFor="recharge-promo"
-          className="text-xs font-medium uppercase tracking-wide text-grey-600"
-        >
-          Code promotionnel
-        </label>
-        <input
-          id="recharge-promo"
-          type="text"
-          value={promoCode}
-          onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-          placeholder="CODEPROMO"
-          className="mt-1 w-full rounded-md border border-grey-200 px-3 py-2 text-sm uppercase placeholder:text-grey-400 focus:border-pine-500 focus:outline-none"
-        />
-        <p className="mt-1 text-xs text-grey-600">
-          Vous pourrez le valider à l'étape de paiement.
-        </p>
-      </div>
-
-      {/* Total */}
-      <div className="mt-4 flex items-center justify-between rounded-md bg-lime-50 px-4 py-3">
-        <span className="text-sm font-semibold text-pine-500">Total</span>
-        <span className="text-sm font-bold text-pine-500">
-          {formatPrice(totalCents)} HT
-        </span>
-      </div>
-
-      {/* Bouton unique. ApplePayButton volontairement absent : Apple rejette
-          les paiements non-IAP pour du contenu numérique consommé in-app. Sur
-          iOS, le bouton ci-dessous redirige vers le navigateur (iosFallbackUrl). */}
-      <div className="mt-5 flex flex-col items-center gap-3">
-        <StripeCheckoutButton
-          items={checkoutItems}
-          customerEmail={userEmail ?? undefined}
-          clientReferenceId={info?.customer_id}
-          successUrl={RECHARGE_SUCCESS_PATH}
-          cancelUrl={RECHARGE_CANCEL_PATH}
-          iosFallbackUrl={IOS_FALLBACK_URL}
-          onSuccess={onChange}
-          disabled={!hasItems}
-        >
-          <PrimaryBtn disabled={!hasItems}>
-            Acheter les crédits →
-          </PrimaryBtn>
-        </StripeCheckoutButton>
-
-        {hasItems && info?.customer_id && (
-          <GooglePayButton
-            items={nativeItems}
-            customerId={info.customer_id}
-            customerEmail={userEmail ?? undefined}
-            onSuccess={onChange}
-          />
-        )}
-      </div>
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }
