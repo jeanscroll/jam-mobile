@@ -12,6 +12,13 @@ import "@/styles/fonts.css";
 import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
 import { initializeOAuthListener, isNativePlatform } from "@/lib/auth/oauthNative";
+import {
+    initRevenueCat,
+    loginRevenueCat,
+    logoutRevenueCat,
+    isIAPAvailable,
+} from "@/lib/iap/revenuecat";
+import { createClient } from "@/utils/supabase/components";
 
 // Routes where Crisp is hidden (its SDK conflicts with Weglot's i18n hooks
 // on some pages, throwing "Cannot read properties of undefined (reading '$i18n')").
@@ -49,6 +56,39 @@ function MyApp({ Component, pageProps }: AppProps) {
 
         return cleanup;
     }, [router]);
+
+    // Initialize RevenueCat (iOS-only) and bind to the Supabase user identity.
+    // - configure() runs once on first mount with the current session id (if any)
+    // - logIn / logOut are mirrored on auth state changes so purchases attach
+    //   to the correct backend user.
+    useEffect(() => {
+        if (!isIAPAvailable()) return;
+
+        const supabase = createClient();
+        let unsub: (() => void) | undefined;
+
+        (async () => {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+            await initRevenueCat(session?.user?.id ?? null);
+
+            const {
+                data: { subscription },
+            } = supabase.auth.onAuthStateChange(async (event, sess) => {
+                if (event === "SIGNED_IN" && sess?.user) {
+                    await loginRevenueCat(sess.user.id);
+                } else if (event === "SIGNED_OUT") {
+                    await logoutRevenueCat();
+                }
+            });
+            unsub = () => subscription.unsubscribe();
+        })();
+
+        return () => {
+            unsub?.();
+        };
+    }, []);
 
     // Initialize PostHog analytics
     useEffect(() => {

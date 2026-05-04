@@ -14,6 +14,13 @@ import { cn, getApiBaseUrl } from "@/lib/utils";
 import StripeSubscriptionButton from "@/plasmic-library/buttons/StripeSubscriptionButton/StripeSubscriptionButton";
 import StripeCheckoutButton from "@/plasmic-library/buttons/StripeCheckoutButton/StripeCheckoutButton";
 import GooglePayButton from "@/plasmic-library/buttons/GooglePayButton/GooglePayButton";
+import {
+  getCurrentOffering,
+  purchasePackage as purchaseIAPPackage,
+  restorePurchases as restoreIAPPurchases,
+  type PurchasesOffering,
+  type PurchasesPackage,
+} from "@/lib/iap/revenuecat";
 
 // ---------- Types ----------
 
@@ -110,6 +117,21 @@ const RECHARGE_CANCEL_PATH = "parametres-abonnement?paiement=cancel";
 // (Spotify, Netflix, Patreon).
 const IOS_FALLBACK_URL = "https://job-around-me.com/parametres-abonnement";
 
+// Apple StoreKit product identifiers — must match App Store Connect AND
+// the products imported into the RevenueCat dashboard. These IDs are the
+// raw Apple product_id, not RevenueCat package identifiers.
+const IOS_PRODUCT_IDS = {
+  basic: "jam_basic_monthly",
+  premium: "jam_premium_monthly",
+  classic: "jam_recharge_classic",
+  minute: "jam_recharge_lastminute",
+  boost: "jam_recharge_boost",
+} as const;
+
+// Small delay (ms) after a successful IAP purchase before re-fetching
+// stripe_info, to give RevenueCat's webhook time to upsert the row.
+const IAP_WEBHOOK_SETTLE_DELAY = 1500;
+
 const ACTIVE_STATUSES = ["active", "complete", "completed"];
 const isActiveStatus = (status: string | null | undefined) =>
   !!status && ACTIVE_STATUSES.includes(status);
@@ -191,16 +213,32 @@ export default function ParametresAbonnementPage() {
   const [monthly, setMonthly] = useState<MonthlyRecharges | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
-  // iOS Capacitor: hide all "calls to action for purchase outside of the app"
-  // to comply with App Store Review Guideline 3.1.3(d) (Free Stand-Alone Apps).
-  // Account-management actions (cancel, manage card, view counters & history)
-  // remain available — only the BUY/UPGRADE entry points are removed.
+  // iOS Capacitor: route all purchase flows through Apple StoreKit / RevenueCat
+  // instead of Stripe (App Store guideline 3.1.1). Account-management actions
+  // (cancel, manage card, counters, history) keep using the existing backend.
   const [isIOS, setIsIOS] = useState(false);
   useEffect(() => {
     setIsIOS(
       Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios"
     );
   }, []);
+
+  // RevenueCat offering — only fetched on iOS, holds the Apple StoreKit
+  // packages (subscriptions + consumables) shown in the IAP UI.
+  const [iapOffering, setIapOffering] = useState<PurchasesOffering | null>(null);
+  const [iapPurchasing, setIapPurchasing] = useState(false);
+  useEffect(() => {
+    if (!isIOS) return;
+    getCurrentOffering().then(setIapOffering);
+  }, [isIOS]);
+
+  const findIapPackage = useCallback(
+    (productId: string): PurchasesPackage | null =>
+      iapOffering?.availablePackages.find(
+        (p) => p.product.identifier === productId
+      ) ?? null,
+    [iapOffering]
+  );
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -309,6 +347,40 @@ export default function ParametresAbonnementPage() {
     });
     return () => subscription.unsubscribe();
   }, [loadAll, supabase]);
+
+  // IAP purchase / restore handlers (defined here because they depend on
+  // loadAll, which is declared above).
+  const handleIapPurchase = useCallback(
+    async (pkg: PurchasesPackage | null) => {
+      if (!pkg || iapPurchasing) return;
+      setIapPurchasing(true);
+      try {
+        await purchaseIAPPackage(pkg);
+        // The RevenueCat → /api/iap/webhook flow upserts stripe_info
+        // server-side. Wait a moment so the next loadAll() reads the new row.
+        await new Promise((r) => setTimeout(r, IAP_WEBHOOK_SETTLE_DELAY));
+        await loadAll();
+      } catch (err: any) {
+        // RevenueCat surfaces user cancellations as a typed error — silent.
+        if (err?.userCancelled || err?.code === "PURCHASE_CANCELLED") return;
+        alert(err?.message ?? "Erreur lors de l'achat");
+      } finally {
+        setIapPurchasing(false);
+      }
+    },
+    [iapPurchasing, loadAll]
+  );
+
+  const handleIapRestore = useCallback(async () => {
+    setIapPurchasing(true);
+    try {
+      await restoreIAPPurchases();
+      await new Promise((r) => setTimeout(r, IAP_WEBHOOK_SETTLE_DELAY));
+      await loadAll();
+    } finally {
+      setIapPurchasing(false);
+    }
+  }, [loadAll]);
 
   // Plan name resolution
   const currentPlanName = useMemo(() => {
@@ -480,6 +552,9 @@ export default function ParametresAbonnementPage() {
         hasActiveSubscription={!!hasActiveSubscription}
         isCanceled={isCanceled}
         isIOS={isIOS}
+        iapPurchasing={iapPurchasing}
+        findIapPackage={findIapPackage}
+        onIapPurchase={handleIapPurchase}
         onChange={loadAll}
       />
 
@@ -489,8 +564,24 @@ export default function ParametresAbonnementPage() {
         prices={prices}
         userEmail={profile?.email ?? userEmail}
         isIOS={isIOS}
+        iapPurchasing={iapPurchasing}
+        findIapPackage={findIapPackage}
+        onIapPurchase={handleIapPurchase}
         onChange={loadAll}
       />
+
+      {isIOS && (
+        <div className="mb-6 flex justify-center">
+          <button
+            type="button"
+            onClick={handleIapRestore}
+            disabled={iapPurchasing}
+            className="text-sm font-medium text-pine-500 underline hover:text-pine-700 disabled:opacity-50"
+          >
+            Restaurer mes achats
+          </button>
+        </div>
+      )}
 
       {info?.customer_id && (
         <PaymentMethodSection
@@ -533,6 +624,9 @@ type SubscriptionSectionProps = {
   hasActiveSubscription: boolean;
   isCanceled: boolean;
   isIOS: boolean;
+  iapPurchasing: boolean;
+  findIapPackage: (productId: string) => PurchasesPackage | null;
+  onIapPurchase: (pkg: PurchasesPackage | null) => Promise<void>;
   onChange: () => void;
 };
 
@@ -546,8 +640,13 @@ function SubscriptionSection({
   hasActiveSubscription,
   isCanceled,
   isIOS,
+  iapPurchasing,
+  findIapPackage,
+  onIapPurchase,
   onChange,
 }: SubscriptionSectionProps) {
+  const iapBasicPkg = isIOS ? findIapPackage(IOS_PRODUCT_IDS.basic) : null;
+  const iapPremiumPkg = isIOS ? findIapPackage(IOS_PRODUCT_IDS.premium) : null;
   const basic = prices?.subscriptions.basic ?? null;
   const premium = prices?.subscriptions.premium ?? null;
 
@@ -574,7 +673,7 @@ function SubscriptionSection({
             </span>
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            {/* Upgrade / downgrade CTAs hidden on iOS — App Store guideline 3.1.3(d). */}
+            {/* Upgrade / downgrade — Stripe on web/Android, RevenueCat IAP on iOS. */}
             {!isIOS && isBasic && premium && (
               <StripeSubscriptionButton
                 stripeAction="update"
@@ -613,24 +712,88 @@ function SubscriptionSection({
               </StripeSubscriptionButton>
             )}
 
-            {/* Cancel is account management — explicitly allowed by 3.1.3. */}
-            <StripeSubscriptionButton
-              stripeAction="cancel"
-              customerId={info?.customer_id ?? undefined}
-              customerEmail={userEmail ?? undefined}
-              onSuccess={onChange}
-              confirmTitle="Voulez-vous résilier votre abonnement ?"
-              confirmDescription="Votre abonnement sera actif jusqu'à la fin du mois en cours. Sans abonnement, vous ne pourrez plus utiliser la plateforme Job Around Me."
-            >
-              <DangerBtn>Résilier mon abonnement</DangerBtn>
-            </StripeSubscriptionButton>
+            {/* iOS: Apple handles upgrade/downgrade prorata when both products
+                live in the same Subscription Group. We just call purchasePackage
+                with the new tier. */}
+            {isIOS && isBasic && iapPremiumPkg && (
+              <PrimaryBtn
+                disabled={iapPurchasing}
+                onClick={() => onIapPurchase(iapPremiumPkg)}
+              >
+                Passer à Premium · {iapPremiumPkg.product.priceString}/mois
+              </PrimaryBtn>
+            )}
+
+            {isIOS && isPremium && iapBasicPkg && (
+              <SecondaryBtn
+                disabled={iapPurchasing}
+                onClick={() => onIapPurchase(iapBasicPkg)}
+              >
+                Repasser à Basic
+              </SecondaryBtn>
+            )}
+
+            {/* Cancel is account management — explicitly allowed by 3.1.3.
+                On iOS, Apple requires cancellation to go through the system
+                Subscription Manager; we still surface a button that opens it. */}
+            {isIOS ? (
+              <DangerBtn
+                onClick={() => {
+                  // App Store guideline: redirect to system subscription mgmt.
+                  window.location.href =
+                    "https://apps.apple.com/account/subscriptions";
+                }}
+              >
+                Gérer / résilier mon abonnement
+              </DangerBtn>
+            ) : (
+              <StripeSubscriptionButton
+                stripeAction="cancel"
+                customerId={info?.customer_id ?? undefined}
+                customerEmail={userEmail ?? undefined}
+                onSuccess={onChange}
+                confirmTitle="Voulez-vous résilier votre abonnement ?"
+                confirmDescription="Votre abonnement sera actif jusqu'à la fin du mois en cours. Sans abonnement, vous ne pourrez plus utiliser la plateforme Job Around Me."
+              >
+                <DangerBtn>Résilier mon abonnement</DangerBtn>
+              </StripeSubscriptionButton>
+            )}
           </div>
         </div>
       ) : isIOS ? (
-        // No purchase CTAs on iOS — App Store 3.1.3(d) Free Stand-Alone Apps.
-        <p className="text-grey-700">
-          Aucun abonnement actif sur ce compte.
-        </p>
+        // iOS: show the Apple StoreKit-priced packages from RevenueCat.
+        <div>
+          <p className="text-grey-700">
+            {isCanceled
+              ? "Votre abonnement est en cours d'annulation. Vous pouvez en relancer un nouveau ci-dessous."
+              : "Aucun abonnement actif. Choisissez une formule pour démarrer."}
+          </p>
+          {iapBasicPkg || iapPremiumPkg ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {iapBasicPkg && (
+                <IapPlanCard
+                  title="Basic"
+                  pkg={iapBasicPkg}
+                  disabled={iapPurchasing}
+                  onPurchase={onIapPurchase}
+                />
+              )}
+              {iapPremiumPkg && (
+                <IapPlanCard
+                  title="Premium"
+                  highlight
+                  pkg={iapPremiumPkg}
+                  disabled={iapPurchasing}
+                  onPurchase={onIapPurchase}
+                />
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-grey-600">
+              Les formules sont en cours de chargement…
+            </p>
+          )}
+        </div>
       ) : (
         <div>
           <p className="text-grey-700">
@@ -687,6 +850,40 @@ function SubscriptionSection({
   );
 }
 
+function IapPlanCard({
+  title,
+  pkg,
+  disabled,
+  onPurchase,
+  highlight,
+}: {
+  title: string;
+  pkg: PurchasesPackage;
+  disabled: boolean;
+  onPurchase: (pkg: PurchasesPackage) => void;
+  highlight?: boolean;
+}) {
+  const interval = pkg.product.subscriptionPeriod || "mois";
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4",
+        highlight ? "border-lime-400 bg-lime-50" : "border-grey-200 bg-white"
+      )}
+    >
+      <div className="text-lg font-semibold text-pine-500">{title}</div>
+      <div className="mt-1 text-grey-700">
+        {pkg.product.priceString} / {interval === "P1M" ? "mois" : interval}
+      </div>
+      <div className="mt-3">
+        <PrimaryBtn disabled={disabled} onClick={() => onPurchase(pkg)}>
+          Choisir {title}
+        </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
 function PlanCard({
   title,
   price,
@@ -722,6 +919,9 @@ type RechargesSectionProps = {
   prices: PricesResponse | null;
   userEmail: string | null;
   isIOS: boolean;
+  iapPurchasing: boolean;
+  findIapPackage: (productId: string) => PurchasesPackage | null;
+  onIapPurchase: (pkg: PurchasesPackage | null) => Promise<void>;
   onChange: () => void;
 };
 
@@ -770,6 +970,9 @@ function RechargesSection({
   prices,
   userEmail,
   isIOS,
+  iapPurchasing,
+  findIapPackage,
+  onIapPurchase,
   onChange,
 }: RechargesSectionProps) {
   const [quantities, setQuantities] = useState<
@@ -840,8 +1043,16 @@ function RechargesSection({
         ))}
       </div>
 
-      {/* On iOS, everything below is purchase UI — hidden to comply with
-          App Store Review guideline 3.1.3(d) (Free Stand-Alone Apps). */}
+      {/* iOS: same cart UX as web/Android, but checkout goes through Apple
+          StoreKit (consumables) via RevenueCat instead of Stripe. */}
+      {isIOS && (
+        <IapRechargesCart
+          findIapPackage={findIapPackage}
+          purchasing={iapPurchasing}
+          onIapPurchase={onIapPurchase}
+        />
+      )}
+
       {!isIOS && (
         <>
           <div className="divide-y divide-grey-100 border-y border-grey-100">
@@ -951,6 +1162,108 @@ function CounterTile({
         {label} :
       </div>
       <div className="mt-1 text-2xl font-bold text-pine-500">{counter}</div>
+    </div>
+  );
+}
+
+function IapRechargesCart({
+  findIapPackage,
+  purchasing,
+  onIapPurchase,
+}: {
+  findIapPackage: (productId: string) => PurchasesPackage | null;
+  purchasing: boolean;
+  onIapPurchase: (pkg: PurchasesPackage | null) => Promise<void>;
+}) {
+  const [quantities, setQuantities] = useState<
+    Record<"classic" | "minute" | "boost", number>
+  >({ classic: 0, minute: 0, boost: 0 });
+
+  const setQty = (key: "classic" | "minute" | "boost", value: number) =>
+    setQuantities((prev) => ({ ...prev, [key]: Math.max(0, value) }));
+
+  const ROWS: Array<{
+    key: "classic" | "minute" | "boost";
+    productLabel: string;
+    iosProductId: string;
+  }> = [
+    {
+      key: "classic",
+      productLabel: "Offre classique",
+      iosProductId: IOS_PRODUCT_IDS.classic,
+    },
+    {
+      key: "minute",
+      productLabel: "Offre Last Minute",
+      iosProductId: IOS_PRODUCT_IDS.minute,
+    },
+    {
+      key: "boost",
+      productLabel: "Offre Boostées",
+      iosProductId: IOS_PRODUCT_IDS.boost,
+    },
+  ];
+
+  const totalQty =
+    quantities.classic + quantities.minute + quantities.boost;
+
+  // Apple consumables can't be batched — we have to call purchasePackage
+  // once per (product, unit). Sequenced to surface a single StoreKit prompt
+  // at a time. If one fails or is cancelled, we stop and let the user retry.
+  const handleBuyAll = async () => {
+    for (const row of ROWS) {
+      const pkg = findIapPackage(row.iosProductId);
+      const qty = quantities[row.key];
+      if (!pkg || qty <= 0) continue;
+      for (let i = 0; i < qty; i++) {
+        await onIapPurchase(pkg);
+      }
+    }
+    setQuantities({ classic: 0, minute: 0, boost: 0 });
+  };
+
+  return (
+    <div className="divide-y divide-grey-100 border-y border-grey-100">
+      {ROWS.map((row) => {
+        const pkg = findIapPackage(row.iosProductId);
+        const qty = quantities[row.key];
+        return (
+          <div
+            key={row.key}
+            className="flex items-center gap-3 py-3 text-sm"
+          >
+            <span
+              className={cn(
+                "h-2 w-2 shrink-0 rounded-full",
+                DOT_COLOR[row.key]
+              )}
+              aria-hidden="true"
+            />
+            <span className="flex-1 text-pine-500">{row.productLabel}</span>
+            <span className="w-16 text-right text-grey-700">
+              {pkg?.product.priceString ?? "—"}
+            </span>
+            <QuantityStepper
+              value={qty}
+              onChange={(v) => setQty(row.key, v)}
+              disabled={!pkg || purchasing}
+            />
+          </div>
+        );
+      })}
+
+      <div className="pt-4">
+        <PrimaryBtn
+          disabled={totalQty === 0 || purchasing}
+          onClick={handleBuyAll}
+          className="w-full"
+        >
+          {purchasing ? "Achat en cours…" : "Acheter les crédits →"}
+        </PrimaryBtn>
+        <p className="mt-2 text-center text-xs text-grey-600">
+          Paiement sécurisé via votre compte Apple.
+        </p>
+      </div>
     </div>
   );
 }
