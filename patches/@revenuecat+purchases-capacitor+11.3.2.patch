@@ -1,0 +1,14 @@
+diff --git a/node_modules/@revenuecat/purchases-capacitor/dist/esm/index.js b/node_modules/@revenuecat/purchases-capacitor/dist/esm/index.js
+index 0000000..1111111 100644
+--- a/node_modules/@revenuecat/purchases-capacitor/dist/esm/index.js
++++ b/node_modules/@revenuecat/purchases-capacitor/dist/esm/index.js
+@@ -1,7 +1,7 @@
+ import { registerPlugin } from '@capacitor/core';
+ const Purchases = registerPlugin('Purchases', {
+-    web: () => import('./web').then((m) => new m.PurchasesWeb()),
++    web: () => import('./web.js').then((m) => new m.PurchasesWeb()),
+ });
+-export * from './definitions';
++export * from './definitions.js';
+ export { Purchases };
+ //# sourceMappingURL=index.js.map

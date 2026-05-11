@@ -16,6 +16,7 @@ import StripeCheckoutButton from "@/plasmic-library/buttons/StripeCheckoutButton
 import GooglePayButton from "@/plasmic-library/buttons/GooglePayButton/GooglePayButton";
 import {
   getCurrentOffering,
+  getLastIapError,
   purchasePackage as purchaseIAPPackage,
   restorePurchases as restoreIAPPurchases,
   type PurchasesOffering,
@@ -116,6 +117,24 @@ const RECHARGE_CANCEL_PATH = "parametres-abonnement?paiement=cancel";
 // browser so the user pays on the web — the standard "reader app" pattern
 // (Spotify, Netflix, Patreon).
 const IOS_FALLBACK_URL = "https://job-around-me.com/parametres-abonnement";
+
+// Required for App Store Review guideline 3.1.2(c) (auto-renewable
+// subscriptions): the app must expose functional links to the privacy
+// policy and the Terms of Use (EULA). We point to our existing legal
+// page for privacy and to Apple's Standard EULA for the terms.
+const PRIVACY_POLICY_URL = "https://job-around-me.com/mentions-legales";
+const TERMS_OF_USE_URL =
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+
+// Capacitor WebViews don't always honour `target="_blank"` for external
+// URLs — use the system browser via @capacitor/browser instead.
+const openExternal = (url: string) => {
+  if (Capacitor.isNativePlatform()) {
+    Browser.open({ url });
+  } else if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
 
 // Apple StoreKit product identifiers — must match App Store Connect AND
 // the products imported into the RevenueCat dashboard. These IDs are the
@@ -227,9 +246,13 @@ export default function ParametresAbonnementPage() {
   // packages (subscriptions + consumables) shown in the IAP UI.
   const [iapOffering, setIapOffering] = useState<PurchasesOffering | null>(null);
   const [iapPurchasing, setIapPurchasing] = useState(false);
+  const [iapLoadError, setIapLoadError] = useState<string | null>(null);
   useEffect(() => {
     if (!isIOS) return;
-    getCurrentOffering().then(setIapOffering);
+    getCurrentOffering().then((offering) => {
+      setIapOffering(offering);
+      setIapLoadError(offering ? null : getLastIapError());
+    });
   }, [isIOS]);
 
   const findIapPackage = useCallback(
@@ -553,6 +576,7 @@ export default function ParametresAbonnementPage() {
         isCanceled={isCanceled}
         isIOS={isIOS}
         iapPurchasing={iapPurchasing}
+        iapLoadError={iapLoadError}
         findIapPackage={findIapPackage}
         onIapPurchase={handleIapPurchase}
         onChange={loadAll}
@@ -565,6 +589,7 @@ export default function ParametresAbonnementPage() {
         userEmail={profile?.email ?? userEmail}
         isIOS={isIOS}
         iapPurchasing={iapPurchasing}
+        iapLoadError={iapLoadError}
         findIapPackage={findIapPackage}
         onIapPurchase={handleIapPurchase}
         onChange={loadAll}
@@ -592,8 +617,36 @@ export default function ParametresAbonnementPage() {
 
       <HistorySection history={history} />
 
+      <LegalFooter />
+
       {showSuccessModal && <SuccessModal onClose={closeSuccessModal} />}
     </PageShell>
+  );
+}
+
+/**
+ * Global legal footer — always rendered, lists privacy + terms links. On iOS
+ * this is also required for App Store Review (guideline 3.1.2(c)); elsewhere
+ * it's a usability/consistency win.
+ */
+function LegalFooter() {
+  return (
+    <footer className="mt-4 mb-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-grey-600">
+      <button
+        type="button"
+        onClick={() => openExternal(PRIVACY_POLICY_URL)}
+        className="underline hover:text-pine-500"
+      >
+        Politique de confidentialité
+      </button>
+      <button
+        type="button"
+        onClick={() => openExternal(TERMS_OF_USE_URL)}
+        className="underline hover:text-pine-500"
+      >
+        Conditions d'utilisation (EULA)
+      </button>
+    </footer>
   );
 }
 
@@ -625,6 +678,7 @@ type SubscriptionSectionProps = {
   isCanceled: boolean;
   isIOS: boolean;
   iapPurchasing: boolean;
+  iapLoadError: string | null;
   findIapPackage: (productId: string) => PurchasesPackage | null;
   onIapPurchase: (pkg: PurchasesPackage | null) => Promise<void>;
   onChange: () => void;
@@ -641,6 +695,7 @@ function SubscriptionSection({
   isCanceled,
   isIOS,
   iapPurchasing,
+  iapLoadError,
   findIapPackage,
   onIapPurchase,
   onChange,
@@ -740,8 +795,7 @@ function SubscriptionSection({
               <DangerBtn
                 onClick={() => {
                   // App Store guideline: redirect to system subscription mgmt.
-                  window.location.href =
-                    "https://apps.apple.com/account/subscriptions";
+                  openExternal("https://apps.apple.com/account/subscriptions");
                 }}
               >
                 Gérer / résilier mon abonnement
@@ -759,6 +813,17 @@ function SubscriptionSection({
               </StripeSubscriptionButton>
             )}
           </div>
+
+          {/* Even when already subscribed, iOS must keep the subscription
+              metadata + legal links accessible (guideline 3.1.2(c)). */}
+          {isIOS && (iapBasicPkg || iapPremiumPkg) && (
+            <IapLegalDisclosure
+              packages={[
+                { title: "Basic", pkg: iapBasicPkg },
+                { title: "Premium", pkg: iapPremiumPkg },
+              ]}
+            />
+          )}
         </div>
       ) : isIOS ? (
         // iOS: show the Apple StoreKit-priced packages from RevenueCat.
@@ -769,24 +834,41 @@ function SubscriptionSection({
               : "Aucun abonnement actif. Choisissez une formule pour démarrer."}
           </p>
           {iapBasicPkg || iapPremiumPkg ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {iapBasicPkg && (
-                <IapPlanCard
-                  title="Basic"
-                  pkg={iapBasicPkg}
-                  disabled={iapPurchasing}
-                  onPurchase={onIapPurchase}
-                />
-              )}
-              {iapPremiumPkg && (
-                <IapPlanCard
-                  title="Premium"
-                  highlight
-                  pkg={iapPremiumPkg}
-                  disabled={iapPurchasing}
-                  onPurchase={onIapPurchase}
-                />
-              )}
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {iapBasicPkg && (
+                  <IapPlanCard
+                    title="Basic"
+                    pkg={iapBasicPkg}
+                    disabled={iapPurchasing}
+                    onPurchase={onIapPurchase}
+                  />
+                )}
+                {iapPremiumPkg && (
+                  <IapPlanCard
+                    title="Premium"
+                    highlight
+                    pkg={iapPremiumPkg}
+                    disabled={iapPurchasing}
+                    onPurchase={onIapPurchase}
+                  />
+                )}
+              </div>
+              {/* App Store Review guideline 3.1.2(c) — mandatory subscription
+                  metadata + privacy/EULA links on the purchase screen. */}
+              <IapLegalDisclosure
+                packages={[
+                  { title: "Basic", pkg: iapBasicPkg },
+                  { title: "Premium", pkg: iapPremiumPkg },
+                ]}
+              />
+            </>
+          ) : iapLoadError ? (
+            <div className="mt-4 rounded-md border border-error-200 bg-error-50 p-3 text-xs text-error-700">
+              <div className="font-semibold">
+                Impossible de charger les formules d'abonnement.
+              </div>
+              <div className="mt-1 break-words">{iapLoadError}</div>
             </div>
           ) : (
             <p className="mt-4 text-sm text-grey-600">
@@ -884,6 +966,69 @@ function IapPlanCard({
   );
 }
 
+/**
+ * App Store Review guideline 3.1.2(c) requires that any app offering
+ * auto-renewable subscriptions exposes — inside the app, on the screen where
+ * the purchase happens — the subscription title, duration, unit price, the
+ * standard auto-renewal disclosure, and functional links to the privacy
+ * policy and the Terms of Use (EULA).
+ */
+function IapLegalDisclosure({
+  packages,
+}: {
+  packages: Array<{ title: string; pkg: PurchasesPackage | null }>;
+}) {
+  const visible = packages.filter(
+    (p): p is { title: string; pkg: PurchasesPackage } => p.pkg !== null
+  );
+  return (
+    <div className="mt-5 rounded-xl border border-grey-200 bg-grey-50 p-4 text-xs text-grey-700">
+      <div className="mb-2 font-semibold text-pine-500">
+        Informations sur l'abonnement
+      </div>
+
+      <ul className="mb-3 space-y-1">
+        {visible.map(({ title, pkg }) => {
+          const period = pkg.product.subscriptionPeriod;
+          const duration = period === "P1M" ? "1 mois" : period || "1 mois";
+          return (
+            <li key={pkg.identifier}>
+              <span className="font-medium text-pine-500">{title}</span> —
+              {" "}
+              {duration} — {pkg.product.priceString}
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="mb-3">
+        Le paiement sera prélevé sur votre compte Apple à la confirmation de
+        l'achat. L'abonnement se renouvelle automatiquement sauf si vous le
+        désactivez au moins 24 h avant la fin de la période en cours. Vous
+        pouvez gérer ou résilier votre abonnement dans les Réglages de votre
+        compte Apple.
+      </p>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <button
+          type="button"
+          onClick={() => openExternal(PRIVACY_POLICY_URL)}
+          className="text-pine-500 underline hover:text-pine-700"
+        >
+          Politique de confidentialité
+        </button>
+        <button
+          type="button"
+          onClick={() => openExternal(TERMS_OF_USE_URL)}
+          className="text-pine-500 underline hover:text-pine-700"
+        >
+          Conditions d'utilisation (EULA)
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PlanCard({
   title,
   price,
@@ -920,6 +1065,7 @@ type RechargesSectionProps = {
   userEmail: string | null;
   isIOS: boolean;
   iapPurchasing: boolean;
+  iapLoadError: string | null;
   findIapPackage: (productId: string) => PurchasesPackage | null;
   onIapPurchase: (pkg: PurchasesPackage | null) => Promise<void>;
   onChange: () => void;
@@ -971,6 +1117,7 @@ function RechargesSection({
   userEmail,
   isIOS,
   iapPurchasing,
+  iapLoadError,
   findIapPackage,
   onIapPurchase,
   onChange,
@@ -1045,7 +1192,15 @@ function RechargesSection({
 
       {/* iOS: same cart UX as web/Android, but checkout goes through Apple
           StoreKit (consumables) via RevenueCat instead of Stripe. */}
-      {isIOS && (
+      {isIOS && iapLoadError && (
+        <div className="mb-3 rounded-md border border-error-200 bg-error-50 p-3 text-xs text-error-700">
+          <div className="font-semibold">
+            Impossible de charger les recharges.
+          </div>
+          <div className="mt-1 break-words">{iapLoadError}</div>
+        </div>
+      )}
+      {isIOS && !iapLoadError && (
         <IapRechargesCart
           findIapPackage={findIapPackage}
           purchasing={iapPurchasing}
