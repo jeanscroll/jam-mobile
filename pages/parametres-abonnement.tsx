@@ -553,9 +553,39 @@ export default function ParametresAbonnementPage() {
     );
   }
 
+  const handleBack = () => {
+    // window.history.length > 1 isn't reliable on Capacitor WebViews, so we
+    // try router.back() and fall back to the home route if there's no entry.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  };
+
   return (
     <PageShell>
-      <header className="mb-6">
+      <header className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleBack}
+          aria-label="Retour"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-grey-200 bg-white text-pine-500 transition hover:bg-pine-500 hover:text-lime-300"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+            aria-hidden="true"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
         <h1 className="text-3xl font-bold text-pine-500">Mon abonnement</h1>
       </header>
 
