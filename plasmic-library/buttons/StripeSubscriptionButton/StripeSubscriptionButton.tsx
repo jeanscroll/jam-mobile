@@ -3,8 +3,7 @@ import type { HTMLElementRefOf } from "@plasmicapp/react-web";
 import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Capacitor } from "@capacitor/core";
-import { Browser } from "@capacitor/browser";
-import { getApiBaseUrl } from "@/lib/utils";
+import { getApiBaseUrl, openExternalUrl } from "@/lib/utils";
 import { ConfirmModal } from "./ConfirmModal";
 
 export interface StripeSubscriptionButtonProps {
@@ -39,7 +38,7 @@ export interface StripeSubscriptionButtonProps {
 
 function StripeSubscriptionButton_(
   props: StripeSubscriptionButtonProps,
-  ref: HTMLElementRefOf<"button">
+  ref: HTMLElementRefOf<"button">,
 ) {
   const {
     stripeAction,
@@ -76,19 +75,30 @@ function StripeSubscriptionButton_(
         throw new Error("customerId requis pour annuler l'abonnement");
       }
 
-      if (stripeAction === "create" && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-        await Browser.open({
-          url: iosFallbackUrl || "https://job-around-me.com/offre-employeur",
-        });
+      if (
+        stripeAction === "create" &&
+        Capacitor.isNativePlatform() &&
+        Capacitor.getPlatform() === "ios"
+      ) {
+        await openExternalUrl(
+          iosFallbackUrl || "https://job-around-me.com/offre-employeur",
+        );
         return;
       }
 
       if (stripeAction === "cancel") {
-        const res = await fetch(`${getApiBaseUrl()}/api/stripe/manage-subscription`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "cancel", customerEmail, customerId }),
-        });
+        const res = await fetch(
+          `${getApiBaseUrl()}/api/stripe/manage-subscription`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "cancel",
+              customerEmail,
+              customerId,
+            }),
+          },
+        );
 
         if (!res.ok) {
           const errorData = await res.json();
@@ -99,26 +109,31 @@ function StripeSubscriptionButton_(
         onSuccess?.();
       } else {
         const stripe = await loadStripe(
-          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
         );
         if (!stripe) throw new Error("Stripe.js non initialisé");
 
-        const res = await fetch(`${getApiBaseUrl()}/api/stripe/manage-subscription`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: stripeAction,
-            priceId,
-            customerId,
-            customerEmail,
-            successUrl,
-            cancelUrl,
-          }),
-        });
+        const res = await fetch(
+          `${getApiBaseUrl()}/api/stripe/manage-subscription`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: stripeAction,
+              priceId,
+              customerId,
+              customerEmail,
+              successUrl,
+              cancelUrl,
+            }),
+          },
+        );
 
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.error || "Erreur lors de la gestion de l’abonnement");
+          throw new Error(
+            errorData.error || "Erreur lors de la gestion de l’abonnement",
+          );
         }
 
         const data = await res.json();
@@ -172,22 +187,22 @@ function StripeSubscriptionButton_(
         loading={loading}
       />
 
-      {isValidElement(children)
-        ? cloneElement(children as React.ReactElement<any>, {
-            onClick: handleClick,
-            disabled: disabled || loading,
-            ref,
-          })
-        : (
-          <button
-            type="button"
-            ref={ref}
-            disabled={disabled || loading}
-            onClick={handleClick}
-          >
-            {loading ? "Chargement..." : children || "Abonnement"}
-          </button>
-        )}
+      {isValidElement(children) ? (
+        cloneElement(children as React.ReactElement<any>, {
+          onClick: handleClick,
+          disabled: disabled || loading,
+          ref,
+        })
+      ) : (
+        <button
+          type="button"
+          ref={ref}
+          disabled={disabled || loading}
+          onClick={handleClick}
+        >
+          {loading ? "Chargement..." : children || "Abonnement"}
+        </button>
+      )}
     </>
   );
 }

@@ -10,7 +10,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/components";
-import { cn, getApiBaseUrl } from "@/lib/utils";
+import { cn, getApiBaseUrl, openExternalUrl } from "@/lib/utils";
 import StripeSubscriptionButton from "@/plasmic-library/buttons/StripeSubscriptionButton/StripeSubscriptionButton";
 import StripeCheckoutButton from "@/plasmic-library/buttons/StripeCheckoutButton/StripeCheckoutButton";
 import GooglePayButton from "@/plasmic-library/buttons/GooglePayButton/GooglePayButton";
@@ -131,13 +131,10 @@ const TERMS_OF_USE_URL =
   "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 
 // Capacitor WebViews don't always honour `target="_blank"` for external
-// URLs — use the system browser via @capacitor/browser instead.
+// URLs — use the shared helper (system browser en plein écran sur iPad,
+// avec repli window.open si le SFSafariViewController échoue).
 const openExternal = (url: string) => {
-  if (Capacitor.isNativePlatform()) {
-    Browser.open({ url });
-  } else if (typeof window !== "undefined") {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+  void openExternalUrl(url);
 };
 
 // Apple StoreKit product identifiers — must match App Store Connect AND

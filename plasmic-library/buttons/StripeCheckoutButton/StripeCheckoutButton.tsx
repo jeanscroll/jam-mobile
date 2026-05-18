@@ -3,8 +3,7 @@ import type { HTMLElementRefOf } from "@plasmicapp/react-web";
 import { useState, cloneElement, isValidElement } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Capacitor } from "@capacitor/core";
-import { Browser } from "@capacitor/browser";
-import { getApiBaseUrl } from "@/lib/utils";
+import { getApiBaseUrl, openExternalUrl } from "@/lib/utils";
 
 export interface StripeItem {
   price: string;
@@ -33,7 +32,7 @@ export interface StripeCheckoutButtonProps {
 
 function StripeCheckoutButton_(
   props: StripeCheckoutButtonProps,
-  ref: HTMLElementRefOf<"button">
+  ref: HTMLElementRefOf<"button">,
 ) {
   const {
     items,
@@ -53,9 +52,9 @@ function StripeCheckoutButton_(
 
   const handleClick = async () => {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-      await Browser.open({
-        url: iosFallbackUrl || "https://job-around-me.com/offre-employeur",
-      });
+      await openExternalUrl(
+        iosFallbackUrl || "https://job-around-me.com/offre-employeur",
+      );
       return;
     }
 
@@ -67,17 +66,20 @@ function StripeCheckoutButton_(
         return;
       }
 
-      const res = await fetch(`${getApiBaseUrl()}/api/stripe/create-checkout-session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: filteredItems,
-          client_reference_id: clientReferenceId,
-          customer_email: customerEmail,
-          success_url: successUrl,
-          cancel_url: cancelUrl,
-        }),
-      });
+      const res = await fetch(
+        `${getApiBaseUrl()}/api/stripe/create-checkout-session`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: filteredItems,
+            client_reference_id: clientReferenceId,
+            customer_email: customerEmail,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+          }),
+        },
+      );
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -86,7 +88,9 @@ function StripeCheckoutButton_(
 
       const { sessionId } = await res.json();
 
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+      const stripe = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+      );
       if (!stripe) throw new Error("Stripe.js non initialisé");
 
       await stripe.redirectToCheckout({ sessionId });
