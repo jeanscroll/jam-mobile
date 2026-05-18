@@ -15,6 +15,13 @@ import {
 } from "@revenuecat/purchases-capacitor";
 
 let initialized = false;
+let lastOfferingError: string | null = null;
+
+/**
+ * Returns the last RevenueCat error encountered (if any) so the UI can show
+ * a useful message instead of an indefinite "Loading…" state.
+ */
+export const getLastIapError = (): string | null => lastOfferingError;
 
 /**
  * RevenueCat is currently only wired for iOS. Returning false everywhere else
@@ -34,21 +41,27 @@ export async function initRevenueCat(
 
   const apiKey = process.env.NEXT_PUBLIC_REVENUECAT_IOS_KEY;
   if (!apiKey) {
-    console.warn(
-      "[RevenueCat] NEXT_PUBLIC_REVENUECAT_IOS_KEY is missing — IAP disabled."
-    );
+    lastOfferingError =
+      "Clé RevenueCat absente du build (NEXT_PUBLIC_REVENUECAT_IOS_KEY).";
+    console.warn(`[RevenueCat] ${lastOfferingError}`);
     return;
   }
 
   try {
-    await Purchases.setLogLevel({ level: LOG_LEVEL.WARN });
+    // DEBUG temporairement pour diagnostiquer pourquoi les packs ne
+    // s'affichent pas en TestFlight. Repasser en WARN une fois stable.
+    await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
     await Purchases.configure({
       apiKey,
       appUserID: supabaseUserId ?? undefined,
     });
     initialized = true;
-  } catch (err) {
-    console.error("[RevenueCat] configure failed:", err);
+    console.log(
+      `[RevenueCat] configured (key prefix ${apiKey.slice(0, 6)}, user=${supabaseUserId ?? "anon"})`
+    );
+  } catch (err: any) {
+    lastOfferingError = `RC configure failed: ${err?.message ?? err}`;
+    console.error("[RevenueCat]", lastOfferingError);
   }
 }
 
@@ -84,12 +97,38 @@ export async function logoutRevenueCat(): Promise<void> {
  * or null if no offering is available (iOS not configured, network down, etc.).
  */
 export async function getCurrentOffering(): Promise<PurchasesOffering | null> {
-  if (!isIAPAvailable() || !initialized) return null;
+  if (!isIAPAvailable()) {
+    lastOfferingError = "IAP non disponible sur cette plateforme.";
+    return null;
+  }
+  if (!initialized) {
+    lastOfferingError =
+      lastOfferingError ?? "RevenueCat non initialisé (pas encore prêt ?).";
+    return null;
+  }
   try {
-    const { current } = await Purchases.getOfferings();
-    return current ?? null;
-  } catch (err) {
-    console.error("[RevenueCat] getOfferings failed:", err);
+    const offerings = await Purchases.getOfferings();
+    const current = offerings.current;
+    if (!current) {
+      const all = Object.keys(offerings.all ?? {});
+      lastOfferingError = `Aucun offering "current" côté RevenueCat. Offerings trouvés: [${all.join(", ") || "aucun"}].`;
+      console.warn("[RevenueCat]", lastOfferingError);
+      return null;
+    }
+    if (current.availablePackages.length === 0) {
+      lastOfferingError = `L'offering "${current.identifier}" n'a aucun package. Vérifier le dashboard RC.`;
+      console.warn("[RevenueCat]", lastOfferingError);
+      return null;
+    }
+    console.log(
+      `[RevenueCat] offering loaded: ${current.identifier} with ${current.availablePackages.length} package(s)`,
+      current.availablePackages.map((p) => p.product.identifier)
+    );
+    lastOfferingError = null;
+    return current;
+  } catch (err: any) {
+    lastOfferingError = `getOfferings failed: ${err?.message ?? err}`;
+    console.error("[RevenueCat]", lastOfferingError);
     return null;
   }
 }

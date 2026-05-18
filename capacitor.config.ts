@@ -21,9 +21,11 @@ const config: CapacitorConfig = {
     },
     Stripe: {
       publishableKey: STRIPE_PUBLISHABLE_KEY,
-      merchantIdentifier: 'merchant.jam.mobile',
+      // Apple Pay disabled on iOS — the app now uses StoreKit / In-App
+      // Purchase via RevenueCat for digital content (App Store guideline 3.1.1).
+      // Google Pay stays available on Android.
       enableGooglePay: false,
-      enableApplePay: true,
+      enableApplePay: false,
       countryCode: 'FR',
       merchantDisplayName: 'JAM Mobile',
     },
