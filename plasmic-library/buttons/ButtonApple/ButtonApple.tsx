@@ -2,7 +2,7 @@ import type React from "react";
 import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef, useState } from "react"
 import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
-import { signInWithOAuth } from "@/lib/auth/oauthNative";
+import { signInWithOAuth, isNativePlatform } from "@/lib/auth/oauthNative";
 import { presets } from "@/styles/presets";
 import Image from "next/image";
 
@@ -65,10 +65,11 @@ const ButtonApple = forwardRef<ButtonActions, ButtonProps>(
 
                     if (!result.success) {
                         console.error("Login error:", result.error);
-                    } else {
-                        console.log("OAuth sign-in successful, redirectTo:", redirectTo);
+                    } else if (isNativePlatform()) {
                         // Native SDK flow completes inline (no deep link needed)
-                        // Force full page reload so SupabaseUserGlobalContext re-mounts
+                        // Force full page reload so SupabaseUserGlobalContext re-mounts.
+                        // On web, Supabase already initiated the redirect to Apple —
+                        // overriding window.location here would cancel it.
                         const target = redirectTo || "/";
                         const safePath = target.startsWith("/") ? target : "/";
                         window.location.href = safePath;
