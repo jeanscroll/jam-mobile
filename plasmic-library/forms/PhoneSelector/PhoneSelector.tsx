@@ -1,6 +1,5 @@
 import * as React from "react";
 import CountrySelector from "./CountrySelector";
-import { useState } from "react";
 
 interface PhoneSelectorProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
@@ -8,26 +7,14 @@ interface PhoneSelectorProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const PhoneSelector: React.FC<PhoneSelectorProps> = ({ className, onDialCodeChange, ...props }) => {
-  const [dialCode, setDialCode] = useState("");
-  const [country, setCountry] = useState("");
-
-  const handleCountryChange = (dialCode: string, country: string) => {
-    setDialCode(dialCode);
-    setCountry(country);
-    if (onDialCodeChange) {
-      onDialCodeChange(dialCode, country);
-    }
-  };
-
   return (
-    <main
-      role="main"
-      className={`flex flex-col text-base font-medium text-black max-w-[147px] ${className}`}
+    <div
+      className={`flex items-center h-full ${className ?? ""}`}
       {...props}
     >
-      <CountrySelector onChange={handleCountryChange} />
-    </main>
+      <CountrySelector onChange={onDialCodeChange} />
+    </div>
   );
-}
+};
 
 export default PhoneSelector;

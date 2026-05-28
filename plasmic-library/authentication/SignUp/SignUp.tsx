@@ -654,20 +654,33 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
 								{phoneLabel}
 							</label>
 						)}
-						<div style={presets.phoneInputGroup as React.CSSProperties}>
-							<PhoneSelector
-								style={presets.phoneSelector as React.CSSProperties}
-							/>
+						<div
+							className={`flex w-full items-stretch overflow-hidden rounded-lg sm:rounded-2xl border bg-white h-12 sm:h-14 transition-colors focus-within:ring-2 focus-within:ring-grey-200/50 ${
+								phoneError
+									? "border-error-500 focus-within:border-error-500"
+									: "border-grey-200 focus-within:border-grey-400"
+							}`}
+						>
+							<div className="flex items-center px-3 sm:px-4 border-r border-grey-200 shrink-0">
+								<PhoneSelector onDialCodeChange={setCountryCode} />
+							</div>
 							<input
 								type="tel"
+								inputMode="tel"
+								autoComplete="tel-national"
 								id="phoneInput"
 								placeholder={placeholderPhone}
 								value={phone ? formatPhoneDisplay(phone) : ""}
 								onChange={handlePhoneChange}
 								required={showPhone}
-								style={presets.phoneInput as React.CSSProperties}
+								className="flex-1 min-w-0 bg-transparent border-0 outline-none px-3 sm:px-4 text-[15px] sm:text-base text-black placeholder:text-grey-400 tabular-nums"
 							/>
 						</div>
+						{phoneError && (
+							<small style={{ color: "red", marginTop: 4 }}>
+								{errorMessages.invalidPhone}
+							</small>
+						)}
 					</div>
 				)}
 				<div style={presets.inputField}>
