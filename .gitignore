@@ -46,7 +46,7 @@ next-env.d.ts
 
 plasmic-init-old.ts
 
-.env
+.env*
 .npmrc
 
 .history
