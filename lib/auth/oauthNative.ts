@@ -3,9 +3,27 @@ import { Browser } from "@capacitor/browser";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
 import { createClient, syncSessionToCookies } from "@/utils/supabase/components";
 
+// NB : les plugins natifs (@capacitor-community/apple-sign-in,
+// @southdevs/capacitor-google-auth) sont importés DYNAMIQUEMENT au clic, jamais
+// en statique : leur ESM n'est pas résolvable par Node et casserait le build
+// Next ("Collecting page data"). Le withTimeout ci-dessous couvre l'import ET
+// l'appel SDK, donc même un chunk qui ne se charge pas ne bloque plus le bouton.
+
 // Constants
 const OAUTH_CALLBACK_URL = "com.jam.mobile://auth/callback";
 const WEB_CALLBACK_URL = "/auth/oauth-callback";
+
+// Garde-fou : empêche un appel SDK natif de laisser le bouton en "chargement infini".
+const NATIVE_SIGNIN_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
 
 /**
  * Check if running on a native platform (iOS/Android)
@@ -142,15 +160,20 @@ export function initializeOAuthListener(
  */
 async function signInWithAppleNative(): Promise<{ success: boolean; error?: string }> {
   try {
-    const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
-
-    const result = await SignInWithApple.authorize({
-      clientId: "com.jam.mobile",
-      redirectURI: OAUTH_CALLBACK_URL,
-      scopes: "email name",
-      state: "",
-      nonce: "",
-    });
+    const result = await withTimeout(
+      (async () => {
+        const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
+        return SignInWithApple.authorize({
+          clientId: "com.jam.mobile",
+          redirectURI: OAUTH_CALLBACK_URL,
+          scopes: "email name",
+          state: "",
+          nonce: "",
+        });
+      })(),
+      NATIVE_SIGNIN_TIMEOUT_MS,
+      "Apple Sign In"
+    );
 
     const identityToken = result.response.identityToken;
     if (!identityToken) {
@@ -187,14 +210,19 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
  */
 async function signInWithGoogleNative(): Promise<{ success: boolean; error?: string }> {
   try {
-    const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
-
-    // requestIdToken() must receive the Web client ID (serverClientId), not the Android client ID
-    await GoogleAuth.initialize({
-      scopes: ["profile", "email"],
-      grantOfflineAccess: false,
-    });
-    const googleUser = await GoogleAuth.signIn({ scopes: ["profile", "email"] });
+    const googleUser = await withTimeout(
+      (async () => {
+        const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
+        // requestIdToken() must receive the Web client ID (serverClientId), not the Android client ID
+        await GoogleAuth.initialize({
+          scopes: ["profile", "email"],
+          grantOfflineAccess: false,
+        });
+        return GoogleAuth.signIn({ scopes: ["profile", "email"] });
+      })(),
+      NATIVE_SIGNIN_TIMEOUT_MS,
+      "Google Sign In"
+    );
 
     const idToken = googleUser.authentication.idToken;
     if (!idToken) {

@@ -36,7 +36,10 @@ export default nextPwa({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development', // désactive le SW en dev
+  // Désactive le SW en dev ET dans l'export Capacitor : un service worker dans
+  // une app Capacitor entre en conflit avec le serveur d'assets natif et peut
+  // bloquer le chargement des chunks dynamiques (boutons OAuth en "chargement infini").
+  disable: process.env.NODE_ENV === 'development' || isCapacitorExport,
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/eu\.i\.posthog\.com\/.*/i,
