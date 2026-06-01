@@ -25,6 +25,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+// Nonce pour Sign in with Apple (sécurité anti-rejeu, exigé par Supabase).
+// Flux : on envoie le nonce HASHÉ (SHA-256) à Apple → le token contient ce hash ;
+// on passe le nonce BRUT à Supabase, qui le re-hashe et compare. Cf. doc Supabase.
+function generateRawNonce(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Check if running on a native platform (iOS/Android)
  */
@@ -160,6 +175,9 @@ export function initializeOAuthListener(
  */
 async function signInWithAppleNative(): Promise<{ success: boolean; error?: string }> {
   try {
+    const rawNonce = generateRawNonce();
+    const hashedNonce = await sha256Hex(rawNonce);
+
     const result = await withTimeout(
       (async () => {
         const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
@@ -168,7 +186,7 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
           redirectURI: OAUTH_CALLBACK_URL,
           scopes: "email name",
           state: "",
-          nonce: "",
+          nonce: hashedNonce,
         });
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
@@ -180,11 +198,14 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
       throw new Error("No identity token returned from Apple Sign In");
     }
 
-    // Exchange the Apple identity token with Supabase
+    // Exchange the Apple identity token with Supabase.
+    // Le nonce BRUT doit être transmis : Supabase le re-hashe et le compare au
+    // claim "nonce" (hashé) du token Apple.
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: "apple",
       token: identityToken,
+      nonce: rawNonce,
     });
 
     if (error) throw error;
