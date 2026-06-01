@@ -55,11 +55,25 @@ export async function syncSessionToCookies(accessToken: string, refreshToken: st
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
-  const { error } = await browserClient.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  })
-  if (error) {
-    console.warn('Failed to sync session to cookies:', error.message)
+
+  // setSession écrit les cookies de session de façon quasi-synchrone, MAIS dans la
+  // WebView iOS (scheme capacitor://) sa promesse peut ne jamais se résoudre (appel
+  // réseau interne / cookies custom-scheme). Sans borne, le flux de connexion natif
+  // resterait bloqué (spinner infini, pas de redirection). On borne donc l'attente :
+  // les cookies sont déjà posés avant le timeout, ce qui débloque la redirection.
+  const SYNC_TIMEOUT_MS = 4000
+  const result = await Promise.race([
+    browserClient.auth
+      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error }) => ({ kind: 'done' as const, error })),
+    new Promise<{ kind: 'timeout' }>((resolve) =>
+      setTimeout(() => resolve({ kind: 'timeout' }), SYNC_TIMEOUT_MS)
+    ),
+  ])
+
+  if (result.kind === 'timeout') {
+    console.warn('syncSessionToCookies: setSession timed out (cookies probably written, continuing)')
+  } else if (result.error) {
+    console.warn('Failed to sync session to cookies:', result.error.message)
   }
 }

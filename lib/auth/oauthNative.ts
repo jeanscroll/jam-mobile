@@ -239,6 +239,9 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
           scopes: ["profile", "email"],
           grantOfflineAccess: false,
         });
+        // Force l'affichage du sélecteur de compte : sans ça, Google ré-utilise
+        // silencieusement le dernier compte connecté (aucune popup).
+        await GoogleAuth.signOut().catch(() => {});
         return GoogleAuth.signIn({ scopes: ["profile", "email"] });
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
