@@ -1,6 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createBrowserClient, type CookieOptions } from '@supabase/ssr'
 import { createClient as createJsClient, type SupabaseClient } from '@supabase/supabase-js'
 import { Capacitor } from '@capacitor/core'
+import { parse as parseCookie, serialize as serializeCookie } from 'cookie'
 
 let nativeClient: SupabaseClient | null = null
 
@@ -50,10 +51,51 @@ export function createClient() {
  * SupabaseUserGlobalContext (which uses createBrowserClient / document.cookie)
  * can find the session established by the native localStorage-based client.
  */
+// Réplique EXACTE de l'heuristique de plasmic-supabase (utils/supabase/component.js) :
+// teste si document.cookie « tient ». Sur iOS (scheme capacitor://) les cookies ne
+// persistent pas → false → on bascule sur localStorage, exactement comme plasmic.
+function cookiesAvailable(): boolean {
+  try {
+    document.cookie = 'studioEnv=false'
+    const cookies = parseCookie(document.cookie)
+    if (cookies['studioEnv']) {
+      document.cookie = 'studioEnv=; expires=Thu, 01 Jan 1970 00:00:00 UTC'
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 export async function syncSessionToCookies(accessToken: string, refreshToken: string): Promise<void> {
+  // IMPORTANT : on utilise le MÊME adaptateur de stockage que plasmic-supabase, sinon
+  // sur iOS on écrirait dans des cookies que plasmic (en mode localStorage) ne relit
+  // jamais → la session ne serait pas détectée après la redirection (retour login).
   const browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (key: string) => {
+          if (cookiesAvailable()) {
+            return parseCookie(document.cookie)[key]
+          }
+          return localStorage.getItem(key) ?? undefined
+        },
+        set: (key: string, value: string, options: CookieOptions) => {
+          if (cookiesAvailable()) {
+            document.cookie = serializeCookie(key, value, options)
+          } else {
+            localStorage.setItem(key, value)
+          }
+        },
+        remove: (key: string, options: CookieOptions) => {
+          document.cookie = serializeCookie(key, '', options)
+          localStorage.removeItem(key)
+        },
+      },
+    },
   )
 
   // setSession écrit les cookies de session de façon quasi-synchrone, MAIS dans la
