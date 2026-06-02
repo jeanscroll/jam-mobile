@@ -103,19 +103,28 @@ export async function syncSessionToCookies(accessToken: string, refreshToken: st
   // réseau interne / cookies custom-scheme). Sans borne, le flux de connexion natif
   // resterait bloqué (spinner infini, pas de redirection). On borne donc l'attente :
   // les cookies sont déjà posés avant le timeout, ce qui débloque la redirection.
+  // Ne JAMAIS throw : ce sync est best-effort. Toute exception ici ne doit pas faire
+  // échouer la connexion (la session est déjà en localStorage).
   const SYNC_TIMEOUT_MS = 4000
-  const result = await Promise.race([
-    browserClient.auth
-      .setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(({ error }) => ({ kind: 'done' as const, error })),
-    new Promise<{ kind: 'timeout' }>((resolve) =>
-      setTimeout(() => resolve({ kind: 'timeout' }), SYNC_TIMEOUT_MS)
-    ),
-  ])
+  try {
+    const result = await Promise.race([
+      browserClient.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => ({ kind: 'done' as const, error }))
+        .catch((error) => ({ kind: 'error' as const, error })),
+      new Promise<{ kind: 'timeout' }>((resolve) =>
+        setTimeout(() => resolve({ kind: 'timeout' }), SYNC_TIMEOUT_MS)
+      ),
+    ])
 
-  if (result.kind === 'timeout') {
-    console.warn('syncSessionToCookies: setSession timed out (cookies probably written, continuing)')
-  } else if (result.error) {
-    console.warn('Failed to sync session to cookies:', result.error.message)
+    if (result.kind === 'timeout') {
+      console.warn('syncSessionToCookies: setSession timed out (cookies probably written, continuing)')
+    } else if (result.kind === 'error') {
+      console.warn('syncSessionToCookies: setSession threw (non-fatal):', result.error)
+    } else if (result.error) {
+      console.warn('Failed to sync session to cookies:', result.error.message)
+    }
+  } catch (e) {
+    console.warn('syncSessionToCookies: unexpected non-fatal error:', e)
   }
 }

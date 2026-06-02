@@ -210,9 +210,14 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
 
     if (error) throw error;
 
-    // Sync session to cookies for Plasmic
+    // Sync session to cookies for Plasmic — BEST-EFFORT (cf. Google ci-dessous) : ne
+    // doit jamais bloquer ni faire échouer la connexion (sinon retour login sur iOS).
     if (data.session) {
-      await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+      try {
+        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+      } catch (e) {
+        console.warn("Apple: cookie sync non-fatal error:", e);
+      }
     }
 
     console.log("Apple native sign-in successful");
@@ -262,9 +267,15 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
 
     if (error) throw error;
 
-    // Sync session to cookies for Plasmic
+    // Sync session to cookies for Plasmic — BEST-EFFORT. La session est déjà persistée
+    // en localStorage par signInWithIdToken ; ce sync ne doit JAMAIS bloquer ni faire
+    // échouer la connexion (sinon : success:false → pas de redirection sur iOS).
     if (data.session) {
-      await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+      try {
+        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+      } catch (e) {
+        console.warn("Google: cookie sync non-fatal error:", e);
+      }
     }
 
     console.log("Google native sign-in successful");

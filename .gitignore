@@ -54,3 +54,7 @@ resources/ios/**/*
 resources/android/**/*
 certificates
 certif_apple/
+
+# logcat / dumps de logs (peuvent contenir des tokens OAuth)
+report
+*.logcat
