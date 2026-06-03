@@ -20,11 +20,29 @@ const FLAG_SVG_URLS: Record<string, string | undefined> = {
   en: "/plasmic/weglot/flags/en.svg",
 };
 
+// API publique minimale du snippet Weglot (pas de types officiels fournis).
+type WeglotApi = {
+  switchTo?: (code: string) => void;
+  getLanguage?: () => string;
+  getCurrentLang?: () => string;
+  _getCurrentLang?: () => string;
+  on?: (event: string, cb: () => void) => void;
+  off?: (event: string, cb: () => void) => void;
+};
+
+// Lecture LIVE de window.Weglot : le script Weglot se charge en asynchrone APRÈS
+// le montage du composant. Capturer la référence une seule fois au render donnait
+// souvent `null` figé → switchTo jamais appelé → "rien ne se passe" au clic.
+function getWeglot(): WeglotApi | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { Weglot?: WeglotApi }).Weglot ?? null;
+}
+
 function persistLang(code: string) {
   try {
     window.localStorage.setItem("weglot_language", code);
     document.cookie = `weglot_language=${encodeURIComponent(
-      code,
+      code
     )}; path=/; max-age=${60 * 60 * 24 * 365}`;
   } catch {}
 }
@@ -37,12 +55,9 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
   dropdownDirection = "down",
   onLanguageChange,
 }) => {
-  const weglot =
-    (typeof window !== "undefined" && (window as any).Weglot) || null;
-
   const getLabel = (code: string): string => {
     return Object.prototype.hasOwnProperty.call(labels, code)
-      ? (labels[code] ?? "")
+      ? labels[code] ?? ""
       : "";
   };
 
@@ -57,6 +72,7 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
 
   const getWeglotLanguage = (): string | null => {
     try {
+      const weglot = getWeglot();
       if (!weglot) return null;
       // Compat: certaines versions exposent getLanguage, d'autres _getCurrentLang
       return (
@@ -75,6 +91,8 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [autoOpenUp, setAutoOpenUp] = useState<boolean>(false);
+  // Passe à true dès que window.Weglot est disponible (script CDN chargé).
+  const [weglotReady, setWeglotReady] = useState<boolean>(false);
 
   // Synchronise l'état local avec Weglot au montage (LS puis Weglot si dispo)
   useEffect(() => {
@@ -86,12 +104,15 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
     if (current && current !== selected) setSelected(current);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll court pour attendre l'initialisation réelle de Weglot et resynchroniser
+  // Poll court pour attendre le chargement réel de Weglot (script CDN async).
+  // Dès qu'il est dispo, on marque weglotReady (→ rebranche l'écouteur ci-dessous)
+  // et on resynchronise la langue affichée.
   useEffect(() => {
     let tries = 0;
-    const maxTries = 25; // ~2.5s à 100ms
+    const maxTries = 50; // ~5s à 100ms (le CDN peut être lent sur mobile)
     const id = window.setInterval(() => {
       tries += 1;
+      if (getWeglot()) setWeglotReady(true);
       const current = getWeglotLanguage();
       if (current) {
         setSelected((prev) => (prev !== current ? current : prev));
@@ -100,10 +121,13 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
       if (tries >= maxTries) window.clearInterval(id);
     }, 100);
     return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Quand Weglot change en dehors (ex: widget natif), on écoute l'évènement si dispo
+  // Quand Weglot change en dehors (ex: widget natif), on écoute l'évènement si dispo.
+  // Dépend de weglotReady pour (re)brancher l'écouteur une fois Weglot chargé.
   useEffect(() => {
+    const weglot = getWeglot();
     if (!weglot?.on) return;
     const handler = () => {
       const current = getWeglotLanguage();
@@ -115,7 +139,8 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
     } catch {
       return;
     }
-  }, [weglot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weglotReady]);
 
   // Resynchronise lorsqu'on revient sur l'onglet (visibility change)
   useEffect(() => {
@@ -171,7 +196,7 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
       const estimatedItemH = 36; // px
       const estimatedMenuH = Math.min(
         240,
-        normalizedOptions.length * estimatedItemH,
+        normalizedOptions.length * estimatedItemH
       );
       // Ouvre vers le haut si dessous insuffisant mais au-dessus suffisant
       if (spaceBelow < estimatedMenuH && spaceAbove > spaceBelow) {
@@ -195,16 +220,46 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, dropdownDirection]);
 
+  // Applique la langue à Weglot. `switchTo` est la seule méthode publique de l'API.
+  // Renvoie true si l'appel a pu être passé (Weglot présent), false sinon.
+  const applyWeglotLanguage = (code: string): boolean => {
+    const weglot = getWeglot();
+    if (typeof weglot?.switchTo === "function") {
+      try {
+        weglot.switchTo(code);
+        console.log("[WeglotSelector] switchTo →", code);
+        return true;
+      } catch (e) {
+        console.warn("[WeglotSelector] switchTo a échoué:", e);
+      }
+    }
+    return false;
+  };
+
   const switchLanguage = (code: string) => {
     setSelected(code);
     persistLang(code);
     // Notifie Plasmic avec le libellé tel que fourni (éventuellement vide)
     onLanguageChange?.({ code, label: getLabel(code) });
-    // Demande à Weglot si présent. `switchTo` est la seule méthode publique
-    // de l'API Weglot pour changer de langue (setLanguage n'existe pas).
-    try {
-      weglot?.switchTo?.(code);
-    } catch {}
+
+    // Applique immédiatement ; si Weglot n'est pas encore chargé (script CDN async),
+    // on réessaie pendant quelques secondes pour ne pas "perdre" le clic.
+    if (!applyWeglotLanguage(code)) {
+      console.warn(
+        "[WeglotSelector] Weglot indisponible au clic, retry…",
+        "(window.Weglot =",
+        !!getWeglot(),
+        ")"
+      );
+      let tries = 0;
+      const id = window.setInterval(() => {
+        tries += 1;
+        if (applyWeglotLanguage(code) || tries >= 50) {
+          window.clearInterval(id);
+        }
+      }, 100);
+    }
+
     setIsOpen(false);
   };
 
