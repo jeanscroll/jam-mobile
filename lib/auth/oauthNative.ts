@@ -264,12 +264,9 @@ async function signInWithAppleNative(): Promise<{
 
 // Singleton d'initialisation du SDK Google natif.
 // IMPORTANT : `GoogleAuth.initialize()` ne doit s'exécuter qu'UNE SEULE fois sur
-// la durée de vie de l'app. Le ré-initialiser à chaque clic (comme avant) est une
-// cause connue d'échecs intermittents du plugin : ré-init + signOut + signIn
-// s'enchaînant dans une fenêtre trop courte provoque une race côté SDK natif
-// (Android `GoogleSignInClient.signOut()` renvoie une Task async ⇒ `signIn()`
-// peut démarrer sur un état incohérent et être annulé / renvoyer sans idToken).
-// Les client IDs proviennent de capacitor.config.ts (auto-chargé par le natif).
+// la durée de vie de l'app. Le ré-initialiser à chaque clic est une cause connue
+// d'instabilité du plugin. Les client IDs proviennent de capacitor.config.ts
+// (auto-chargé par le natif).
 let googleAuthInitPromise: Promise<any> | null = null;
 
 async function getGoogleAuth(): Promise<any> {
@@ -315,12 +312,17 @@ async function signInWithGoogleNative(): Promise<{
   error?: string;
 }> {
   try {
-    // L'init est garantie unique (singleton) ; on appelle directement signIn().
-    // Plus de `signOut()` ici : il est désormais fait au LOGOUT de l'app
-    // (cf. signOutGoogleNative + _app.tsx) pour éviter la race signOut→signIn.
+    // L'init est garantie unique (singleton). On fait un signOut() AWAITÉ juste
+    // avant signIn() : indispensable côté iOS, sinon le SDK tente un
+    // `restorePreviousSignIn` qui peut rester PENDANT (ni résolu ni rejeté) →
+    // le bouton reste bloqué en "Chargement…". Comme tout est enveloppé dans
+    // withTimeout, même un appel natif qui ne répond pas finit par rejeter.
     const googleUser = await withTimeout(
       (async () => {
         const GoogleAuth = await getGoogleAuth();
+        // Nettoie l'état natif (compte mis en cache) avant de redemander :
+        // évite le hang iOS + force le sélecteur de compte. Best-effort.
+        await GoogleAuth.signOut().catch(() => {});
         return GoogleAuth.signIn();
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
@@ -332,12 +334,18 @@ async function signInWithGoogleNative(): Promise<{
       throw new Error("No ID token returned from Google Sign In");
     }
 
-    // Exchange the Google ID token with Supabase
+    // Exchange the Google ID token with Supabase.
+    // Timeout également ici : sans ça, un appel réseau Supabase qui pend
+    // laisserait le bouton bloqué en "Chargement…" indéfiniment.
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: "google",
-      token: idToken,
-    });
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      }),
+      NATIVE_SIGNIN_TIMEOUT_MS,
+      "Supabase signInWithIdToken",
+    );
 
     if (error) throw error;
 
