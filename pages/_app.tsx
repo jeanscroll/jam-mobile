@@ -11,6 +11,7 @@ import "@/styles/globals.css";
 import "@/styles/fonts.css";
 import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
+import WeglotDebug from "@/components/weglot/WeglotDebug";
 import {
   initializeOAuthListener,
   isNativePlatform,
@@ -37,7 +38,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
     document.documentElement.setAttribute(
       "data-build",
-      process.env.NODE_ENV as string,
+      process.env.NODE_ENV as string
     );
   }, []);
 
@@ -58,7 +59,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       (error) => {
         console.error("OAuth failed:", error);
         router.replace("/login?error=oauth_failed");
-      },
+      }
     );
 
     return cleanup;
@@ -144,6 +145,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         <Component {...pageProps} />
         <CrispChat disabledRoutes={CRISP_DISABLED_ROUTES} />
         <WeglotScript />
+        <WeglotDebug />
       </>
     </PostHogProvider>
   );
