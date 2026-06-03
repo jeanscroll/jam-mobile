@@ -67,15 +67,12 @@ jobs:
           NEXT_PUBLIC_REVENUECAT_IOS_KEY: ${{ secrets.NEXT_PUBLIC_REVENUECAT_IOS_KEY }}
         run: npm run build:capacitor
 
-      - name: Patch GoogleSignIn version for privacy manifest
-        run: |
-          sed -i '' "s/GoogleSignIn', '~> 6.2.4'/GoogleSignIn', '~> 8.0'/" node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
-          cat node_modules/@southdevs/capacitor-google-auth/SouthdevsCapacitorGoogleAuth.podspec
-
-      - name: Patch Google Auth plugin for GoogleSignIn 8.x API
-        run: |
-          cp patches/capacitor-google-auth-Plugin.swift node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-          echo "Plugin.swift patched"
+      # NB : le plugin Google (podspec GoogleSignIn ~> 7.1 + rewrite de Plugin.swift
+      # pour l'API GoogleSignIn 7.x/8.x) est désormais patché automatiquement par
+      # patch-package (postinstall de `npm ci`) via
+      # patches/@southdevs+capacitor-google-auth+7.0.0.patch.
+      # Les anciennes étapes manuelles (sed podspec + cp d'un Plugin.swift externe)
+      # sont supprimées : le fichier copié n'existait plus → le workflow échouait.
 
       - name: Sync Capacitor iOS
         run: npx cap sync ios
