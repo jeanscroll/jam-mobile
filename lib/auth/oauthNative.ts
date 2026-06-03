@@ -42,11 +42,59 @@ function withTimeout<T>(
 // Filtrer la console sur "[GoogleAuth]" : la dernière étape ":start" SANS son
 // ":done", ou un message "step=XXX timed out", désigne EXACTEMENT où ça bloque.
 const GA_TAG = "[GoogleAuth]";
+
+// Overlay visuel À L'ÉCRAN : affiche chaque étape directement dans l'app (pas
+// besoin de Safari Web Inspector). Non bloquant (pointer-events: none → ne gêne
+// jamais le clic). Actif uniquement en natif. Tape sur 🐞 nettoie / masque.
+function gaOverlayAppend(line: string): void {
+  if (typeof document === "undefined") return;
+  if (!isNativePlatform()) return;
+  const ID = "ga-debug-overlay";
+  let box = document.getElementById(ID);
+  if (!box) {
+    box = document.createElement("div");
+    box.id = ID;
+    box.style.cssText = [
+      "position:fixed",
+      "top:env(safe-area-inset-top,0px)",
+      "left:0",
+      "right:0",
+      "max-height:45vh",
+      "overflow:auto",
+      "z-index:2147483647",
+      "background:rgba(0,0,0,0.82)",
+      "color:#0f0",
+      "font:11px/1.35 ui-monospace,Menlo,monospace",
+      "padding:6px 8px",
+      "white-space:pre-wrap",
+      "word-break:break-word",
+      "pointer-events:none",
+    ].join(";");
+    document.body.appendChild(box);
+  }
+  const ts = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
+  const row = document.createElement("div");
+  row.textContent = `${ts}  ${line}`;
+  box.appendChild(row);
+  // Garde les ~40 dernières lignes.
+  while (box.childElementCount > 40) box.removeChild(box.firstChild as Node);
+  box.scrollTop = box.scrollHeight;
+}
+
 function gaLog(step: string, extra?: unknown): void {
   if (extra !== undefined) {
     console.log(`${GA_TAG} ${step}`, extra);
+    let suffix = "";
+    try {
+      suffix =
+        " " + (extra instanceof Error ? extra.message : JSON.stringify(extra));
+    } catch {
+      suffix = " " + String(extra);
+    }
+    gaOverlayAppend(`${GA_TAG} ${step}${suffix}`);
   } else {
     console.log(`${GA_TAG} ${step}`);
+    gaOverlayAppend(`${GA_TAG} ${step}`);
   }
 }
 
