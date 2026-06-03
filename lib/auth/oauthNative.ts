@@ -342,9 +342,11 @@ async function signInWithAppleNative(): Promise<{
 // (auto-chargé par le natif).
 type GoogleAuthPlugin =
   typeof import("@southdevs/capacitor-google-auth")["GoogleAuth"];
-let googleAuthInitPromise: Promise<GoogleAuthPlugin> | null = null;
+// On enveloppe le plugin dans un objet simple : voir le commentaire dans l'init.
+type GoogleAuthHandle = { GoogleAuth: GoogleAuthPlugin };
+let googleAuthInitPromise: Promise<GoogleAuthHandle> | null = null;
 
-async function getGoogleAuth(): Promise<GoogleAuthPlugin> {
+async function getGoogleAuth(): Promise<GoogleAuthHandle> {
   if (!googleAuthInitPromise) {
     const init = (async () => {
       gaLog("import:start");
@@ -366,7 +368,13 @@ async function getGoogleAuth(): Promise<GoogleAuthPlugin> {
         `${GA_TAG} step=INITIALIZE`
       );
       gaLog("initialize:done");
-      return mod.GoogleAuth;
+      // ⚠️ CAUSE RACINE du bouton bloqué : NE JAMAIS résoudre une promesse avec le
+      // proxy Capacitor directement. Son handler `get` renvoie une fonction pour
+      // TOUTE propriété (y compris `.then`), donc `await proxy` le prend pour un
+      // thenable et appelle `proxy.then(resolve, reject)` → routé comme méthode
+      // native "then" inexistante → resolve/reject JAMAIS appelés → hang infini.
+      // On le retourne donc enveloppé dans un objet simple (`.then` === undefined).
+      return { GoogleAuth: mod.GoogleAuth };
     })();
     // Si l'init échoue (y compris via timeout d'étape), on vide le cache pour
     // permettre un nouvel essai propre au clic suivant.
@@ -409,7 +417,7 @@ async function signInWithGoogleNative(): Promise<{
   );
   try {
     // 1) Import + initialize (singleton), chacun avec son propre timeout/label.
-    const GoogleAuth = await getGoogleAuth();
+    const { GoogleAuth } = await getGoogleAuth();
 
     // 2) signOut() best-effort AVEC timeout d'étape isolé. Un `.catch()` ne
     // protège PAS d'un hang : sans timeout dédié, un signOut() natif qui ne
@@ -506,7 +514,7 @@ async function signInWithGoogleNative(): Promise<{
 export async function signOutGoogleNative(): Promise<void> {
   if (!isNativePlatform()) return;
   try {
-    const GoogleAuth = await getGoogleAuth();
+    const { GoogleAuth } = await getGoogleAuth();
     await GoogleAuth.signOut();
     console.log("Google native sign-out successful");
   } catch (e) {
