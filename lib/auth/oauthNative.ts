@@ -1,7 +1,10 @@
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
-import { createClient, syncSessionToCookies } from "@/utils/supabase/components";
+import {
+  createClient,
+  syncSessionToCookies,
+} from "@/utils/supabase/components";
 
 // NB : les plugins natifs (@capacitor-community/apple-sign-in,
 // @southdevs/capacitor-google-auth) sont importés DYNAMIQUEMENT au clic, jamais
@@ -16,11 +19,18 @@ const WEB_CALLBACK_URL = "/auth/oauth-callback";
 // Garde-fou : empêche un appel SDK natif de laisser le bouton en "chargement infini".
 const NATIVE_SIGNIN_TIMEOUT_MS = 30_000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      ),
     ),
   ]);
 }
@@ -37,7 +47,9 @@ function generateRawNonce(): string {
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hashBuffer), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 /**
@@ -67,7 +79,7 @@ export function getOAuthRedirectUrl(): string {
  */
 export function initializeOAuthListener(
   onSuccess: () => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
 ): () => void {
   if (!isNativePlatform()) {
     // No-op for web
@@ -81,8 +93,12 @@ export function initializeOAuthListener(
     console.log("App URL opened:", event.url);
 
     // Check if this is our OAuth or email verification callback
-    const isOAuthCallback = event.url.startsWith("com.jam.mobile://auth/callback");
-    const isEmailCallback = event.url.startsWith("com.jam.mobile://auth/email-callback");
+    const isOAuthCallback = event.url.startsWith(
+      "com.jam.mobile://auth/callback",
+    );
+    const isEmailCallback = event.url.startsWith(
+      "com.jam.mobile://auth/email-callback",
+    );
     if (!isOAuthCallback && !isEmailCallback) return;
 
     // Ignore duplicate callbacks (browser can fire twice)
@@ -94,7 +110,10 @@ export function initializeOAuthListener(
     // Ignore error callbacks if a code callback already came through
     const urlParams = new URL(event.url).searchParams;
     if (urlParams.get("error")) {
-      console.warn("OAuth callback error from server:", urlParams.get("error_description"));
+      console.warn(
+        "OAuth callback error from server:",
+        urlParams.get("error_description"),
+      );
       return;
     }
 
@@ -106,7 +125,9 @@ export function initializeOAuthListener(
       const refreshToken = hashParams.get("refresh_token");
 
       if (!accessToken) {
-        onError(new Error("No authorization code or tokens found in callback URL"));
+        onError(
+          new Error("No authorization code or tokens found in callback URL"),
+        );
         return;
       }
 
@@ -147,7 +168,10 @@ export function initializeOAuthListener(
 
       // Sync session to cookies so plasmic-supabase's SupabaseUserGlobalContext can find it
       if (data.session) {
-        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+        await syncSessionToCookies(
+          data.session.access_token,
+          data.session.refresh_token,
+        );
       }
 
       console.log("OAuth session established successfully");
@@ -173,14 +197,18 @@ export function initializeOAuthListener(
 /**
  * Native Apple Sign In using ASAuthorizationController (no browser)
  */
-async function signInWithAppleNative(): Promise<{ success: boolean; error?: string }> {
+async function signInWithAppleNative(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
     const rawNonce = generateRawNonce();
     const hashedNonce = await sha256Hex(rawNonce);
 
     const result = await withTimeout(
       (async () => {
-        const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
+        const { SignInWithApple } =
+          await import("@capacitor-community/apple-sign-in");
         return SignInWithApple.authorize({
           clientId: "com.jam.mobile",
           redirectURI: OAUTH_CALLBACK_URL,
@@ -190,7 +218,7 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
         });
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
-      "Apple Sign In"
+      "Apple Sign In",
     );
 
     const identityToken = result.response.identityToken;
@@ -214,7 +242,10 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
     // doit jamais bloquer ni faire échouer la connexion (sinon retour login sur iOS).
     if (data.session) {
       try {
-        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+        await syncSessionToCookies(
+          data.session.access_token,
+          data.session.refresh_token,
+        );
       } catch (e) {
         console.warn("Apple: cookie sync non-fatal error:", e);
       }
@@ -231,29 +262,72 @@ async function signInWithAppleNative(): Promise<{ success: boolean; error?: stri
   }
 }
 
+// Singleton d'initialisation du SDK Google natif.
+// IMPORTANT : `GoogleAuth.initialize()` ne doit s'exécuter qu'UNE SEULE fois sur
+// la durée de vie de l'app. Le ré-initialiser à chaque clic (comme avant) est une
+// cause connue d'échecs intermittents du plugin : ré-init + signOut + signIn
+// s'enchaînant dans une fenêtre trop courte provoque une race côté SDK natif
+// (Android `GoogleSignInClient.signOut()` renvoie une Task async ⇒ `signIn()`
+// peut démarrer sur un état incohérent et être annulé / renvoyer sans idToken).
+// Les client IDs proviennent de capacitor.config.ts (auto-chargé par le natif).
+let googleAuthInitPromise: Promise<any> | null = null;
+
+async function getGoogleAuth(): Promise<any> {
+  if (!googleAuthInitPromise) {
+    const init = (async () => {
+      const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
+      await GoogleAuth.initialize({
+        scopes: ["profile", "email"],
+        grantOfflineAccess: false,
+      });
+      return GoogleAuth;
+    })();
+    // Si l'init échoue, on vide le cache pour permettre un nouvel essai propre.
+    init.catch(() => {
+      googleAuthInitPromise = null;
+    });
+    googleAuthInitPromise = init;
+  }
+  return googleAuthInitPromise;
+}
+
+/**
+ * Détecte une annulation par l'utilisateur (fermeture du sélecteur de compte).
+ * Ce n'est pas une vraie erreur : le bouton doit simplement se réinitialiser.
+ * Android: 12501 (SIGN_IN_CANCELLED) · iOS: -5 / "canceled" · Web: "popup_closed".
+ */
+function isUserCancellation(code: unknown, message: string): boolean {
+  const c = String(code ?? "");
+  return (
+    c === "12501" ||
+    c === "-5" ||
+    /cancel/i.test(message) ||
+    /popup_closed/i.test(message) ||
+    /user.?cancell?ed/i.test(message)
+  );
+}
+
 /**
  * Native Google Sign In using Google SDK (no browser)
  */
-async function signInWithGoogleNative(): Promise<{ success: boolean; error?: string }> {
+async function signInWithGoogleNative(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
+    // L'init est garantie unique (singleton) ; on appelle directement signIn().
+    // Plus de `signOut()` ici : il est désormais fait au LOGOUT de l'app
+    // (cf. signOutGoogleNative + _app.tsx) pour éviter la race signOut→signIn.
     const googleUser = await withTimeout(
       (async () => {
-        const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
-        // requestIdToken() must receive the Web client ID (serverClientId), not the Android client ID
-        await GoogleAuth.initialize({
-          scopes: ["profile", "email"],
-          grantOfflineAccess: false,
-        });
-        // Force l'affichage du sélecteur de compte : sans ça, Google ré-utilise
-        // silencieusement le dernier compte connecté (aucune popup).
-        await GoogleAuth.signOut().catch(() => {});
-        return GoogleAuth.signIn({ scopes: ["profile", "email"] });
+        const GoogleAuth = await getGoogleAuth();
+        return GoogleAuth.signIn();
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
-      "Google Sign In"
+      "Google Sign In",
     );
 
-    const idToken = googleUser.authentication.idToken;
+    const idToken = googleUser?.authentication?.idToken;
     if (!idToken) {
       throw new Error("No ID token returned from Google Sign In");
     }
@@ -272,7 +346,10 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
     // échouer la connexion (sinon : success:false → pas de redirection sur iOS).
     if (data.session) {
       try {
-        await syncSessionToCookies(data.session.access_token, data.session.refresh_token);
+        await syncSessionToCookies(
+          data.session.access_token,
+          data.session.refresh_token,
+        );
       } catch (e) {
         console.warn("Google: cookie sync non-fatal error:", e);
       }
@@ -281,11 +358,38 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
     console.log("Google native sign-in successful");
     return { success: true };
   } catch (error: any) {
-    console.error("Google native sign-in error:", error?.message, "code:", error?.code, "status:", error?.status);
+    const code = error?.code ?? error?.errorCode ?? error?.status;
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Annulation utilisateur : on ne loggue pas en erreur, on réinitialise juste le bouton.
+    if (isUserCancellation(code, message)) {
+      console.log("Google native sign-in cancelled by user");
+      return { success: false, error: "cancelled" };
+    }
+
+    console.error("Google native sign-in error:", message, "code:", code);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
     };
+  }
+}
+
+/**
+ * Déconnexion du SDK Google natif. Best-effort, ne lève jamais.
+ * À appeler au LOGOUT de l'app (event Supabase SIGNED_OUT) afin que la prochaine
+ * connexion reparte d'un état natif propre : le compte Google mis en cache est
+ * effacé (⇒ le sélecteur de compte réapparaît) et on évite la race stale-session
+ * qui cassait par intermittence la re-connexion juste après une déconnexion.
+ */
+export async function signOutGoogleNative(): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    const GoogleAuth = await getGoogleAuth();
+    await GoogleAuth.signOut();
+    console.log("Google native sign-out successful");
+  } catch (e) {
+    console.warn("Google native signOut non-fatal error:", e);
   }
 }
 
@@ -296,7 +400,7 @@ async function signInWithGoogleNative(): Promise<{ success: boolean; error?: str
  */
 export async function signInWithOAuth(
   provider: "google" | "apple",
-  webRedirectTo?: string
+  webRedirectTo?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (isNativePlatform()) {
     const platform = Capacitor.getPlatform();
