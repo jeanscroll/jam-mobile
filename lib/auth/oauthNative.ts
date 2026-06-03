@@ -86,6 +86,25 @@ function gaOverlayAppend(line: string): void {
   box.scrollTop = box.scrollHeight;
 }
 
+// Décode (sans vérifier la signature) le payload d'un JWT pour le diagnostic.
+function decodeJwtClaims(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json = decodeURIComponent(
+      atob(pad)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 function gaLog(step: string, extra?: unknown): void {
   if (extra !== undefined) {
     console.log(`${GA_TAG} ${step}`, extra);
@@ -455,7 +474,18 @@ async function signInWithGoogleNative(): Promise<{
     if (!idToken) {
       throw new Error("No ID token returned from Google Sign In");
     }
-    gaLog("idToken:received → supabase:start");
+    // Décode les claims du token (diagnostic) : on voit aud / iss / présence de
+    // nonce / exp → de quoi comprendre pourquoi Supabase rejette le cas échéant.
+    const claims = decodeJwtClaims(idToken);
+    gaLog("idToken:received", {
+      len: idToken.length,
+      aud: claims?.aud,
+      iss: claims?.iss,
+      azp: claims?.azp,
+      hasNonce: claims ? "nonce" in claims : "?",
+      exp: claims?.exp,
+    });
+    gaLog("supabase:start");
 
     // 4) Exchange the Google ID token with Supabase.
     const supabase = createClient();
@@ -468,7 +498,16 @@ async function signInWithGoogleNative(): Promise<{
       `${GA_TAG} step=SUPABASE`
     );
 
-    if (error) throw error;
+    if (error) {
+      // Log explicite de l'erreur Supabase (message + status + code) AVANT de la
+      // relancer, pour qu'elle apparaisse en rouge dans l'overlay device.
+      gaLog("supabase:ERROR", {
+        message: error.message,
+        status: (error as { status?: unknown }).status,
+        code: (error as { code?: unknown }).code,
+      });
+      throw error;
+    }
     gaLog("supabase:done");
 
     // Sync session to cookies for Plasmic — BEST-EFFORT. La session est déjà persistée
