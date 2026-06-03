@@ -14,10 +14,10 @@ index 28d5e6d..0978540 100644
      s.static_framework = true
    end
 diff --git a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-index 26d5407..b107ebd 100644
+index 26d5407..5737531 100644
 --- a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
 +++ b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-@@ -1,128 +1,165 @@
+@@ -1,128 +1,172 @@
  import Foundation
 +import UIKit
  import Capacitor
@@ -180,11 +180,18 @@ index 26d5407..b107ebd 100644
 +            return
 +        }
 +        let scopes = call.getArray("scopes", String.self) ?? []
++        // Nonce optionnel : si fourni (hash SHA-256 par le JS), Google l'inscrit
++        // dans le claim `nonce` du token → Supabase peut alors valider le token
++        // via `signInWithIdToken({ nonce: <brut> })`. Sans ça, le SDK iOS génère
++        // son propre nonce que personne ne connaît → Supabase rejette (erreur 400
++        // "Passed nonce and nonce in id_token should either both exist or not").
++        let nonce = call.getString("nonce")
 +
 +        self.googleSignIn.signIn(
 +            withPresenting: presentingVc,
 +            hint: nil,
-+            additionalScopes: scopes
++            additionalScopes: scopes,
++            nonce: nonce
 +        ) { signInResult, error in
 +            if let error = error {
 +                self.signInCall?.reject(error.localizedDescription, "\(error._code)")
@@ -247,7 +254,7 @@ index 26d5407..b107ebd 100644
              }
          }
      }
-@@ -131,65 +168,62 @@ public class GoogleAuth: CAPPlugin {
+@@ -131,65 +175,62 @@ public class GoogleAuth: CAPPlugin {
      func signOut(_ call: CAPPluginCall) {
          DispatchQueue.main.async {
              if self.googleSignIn != nil {

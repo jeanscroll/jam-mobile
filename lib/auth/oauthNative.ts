@@ -366,6 +366,10 @@ async function signInWithAppleNative(): Promise<{
 // (auto-chargé par le natif).
 type GoogleAuthPlugin =
   typeof import("@southdevs/capacitor-google-auth")["GoogleAuth"];
+// Options de signIn + nonce (non typé par le plugin mais transmis au natif).
+type GoogleSignInArgs = Parameters<GoogleAuthPlugin["signIn"]>[0] & {
+  nonce?: string;
+};
 // On enveloppe le plugin dans un objet simple : voir le commentaire dans l'init.
 type GoogleAuthHandle = { GoogleAuth: GoogleAuthPlugin };
 let googleAuthInitPromise: Promise<GoogleAuthHandle> | null = null;
@@ -462,9 +466,21 @@ async function signInWithGoogleNative(): Promise<{
     // 3) signIn() — c'est ICI que le sélecteur de compte Google doit apparaître.
     // Si "signIn:start" s'affiche SANS modale et SANS "signIn:done", le blocage
     // est natif (présentation impossible / completion jamais rappelé).
+    // Nonce : on génère le nôtre. On envoie le HASH (SHA-256) à Google (inscrit
+    // tel quel dans le claim `nonce` du token) et on passera le nonce BRUT à
+    // Supabase, qui le re-hashe et compare. Indispensable : le SDK iOS met
+    // toujours un nonce dans le token ; sans ce nonce maîtrisé, Supabase rejette
+    // ("Passed nonce and nonce in id_token should either both exist or not").
+    const rawNonce = generateRawNonce();
+    const hashedNonce = await sha256Hex(rawNonce);
+    const googleSignInOpts: GoogleSignInArgs = {
+      scopes: ["profile", "email"],
+      nonce: hashedNonce,
+    };
+
     gaLog("signIn:start (le sélecteur Google doit s'afficher maintenant)");
     const googleUser = await withTimeout(
-      GoogleAuth.signIn({ scopes: ["profile", "email"] }),
+      GoogleAuth.signIn(googleSignInOpts),
       GA_SIGNIN_TIMEOUT_MS,
       `${GA_TAG} step=SIGNIN`
     );
@@ -493,6 +509,7 @@ async function signInWithGoogleNative(): Promise<{
       supabase.auth.signInWithIdToken({
         provider: "google",
         token: idToken,
+        nonce: rawNonce,
       }),
       GA_SUPABASE_TIMEOUT_MS,
       `${GA_TAG} step=SUPABASE`
