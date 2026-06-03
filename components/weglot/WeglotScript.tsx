@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export default function WeglotScript() {
   useEffect(() => {
@@ -9,35 +9,39 @@ export default function WeglotScript() {
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://cdn.weglot.com/weglot.min.js';
+    const script = document.createElement("script");
+    script.src = "https://cdn.weglot.com/weglot.min.js";
     script.async = true;
     script.onload = () => {
       // @ts-ignore
-      if (typeof Weglot !== 'undefined') {
+      if (typeof Weglot !== "undefined") {
         // @ts-ignore
         Weglot.initialize({
-          api_key: 'wg_7a994a95d8a52ee847d1d76f13c919c67',
-          originalLanguage: 'fr',
-          destinationLanguages: ['en', 'es'],
+          api_key: "wg_7a994a95d8a52ee847d1d76f13c919c67",
+          originalLanguage: "fr",
+          destinationLanguages: ["en", "es"],
           autoSwitch: false,
-          cache: false, // Désactiver le cache pour éviter les problèmes de prod
-          dynamic: false, // Éviter les changements dynamiques
+          // IMPORTANT : l'app est une SPA Next.js + Plasmic rendue côté client.
+          // `dynamic: true` est INDISPENSABLE : sans ça, Weglot ne traduit que le
+          // DOM présent à l'init (souvent vide car Plasmic n'a pas fini de rendre)
+          // et ne re-traduit jamais le contenu injecté ensuite ni les changements
+          // de page (navigation client-side) → la traduction "ne fonctionne pas".
+          dynamic: true,
         });
 
         // Forcer l'application des styles après initialisation
         setTimeout(() => {
           const applyStyles = () => {
             const selectors = [
-              '.weglot_switcher',
-              '.weglot-dropdown',
+              ".weglot_switcher",
+              ".weglot-dropdown",
               '[class*="weglot"]',
-              '#weglot_here'
+              "#weglot_here",
             ];
 
-            selectors.forEach(selector => {
+            selectors.forEach((selector) => {
               const elements = document.querySelectorAll(selector);
-              elements.forEach(element => {
+              elements.forEach((element) => {
                 if (element) {
                   (element as HTMLElement).style.cssText += `
                     position: fixed !important;
