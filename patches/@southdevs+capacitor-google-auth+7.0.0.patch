@@ -14,10 +14,13 @@ index 28d5e6d..0978540 100644
      s.static_framework = true
    end
 diff --git a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-index 26d5407..766e65b 100644
+index 26d5407..b107ebd 100644
 --- a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
 +++ b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-@@ -3,126 +3,133 @@ import Capacitor
+@@ -1,128 +1,165 @@
+ import Foundation
++import UIKit
+ import Capacitor
  import GoogleSignIn
  
  /**
@@ -109,6 +112,18 @@ index 26d5407..766e65b 100644
      func signIn(_ call: CAPPluginCall) {
 -        signInCall = call;
 +        signInCall = call
++        // Garde-fou : si initialize() n'a pas tourné (ou a échoué silencieusement
++        // faute de client id), googleSignIn est nil → `googleSignIn.hasPreviousSignIn()`
++        // planterait (force-unwrap implicite) et le bouton resterait bloqué. On
++        // (ré)initialise ici de façon défensive ; sinon on rejette proprement.
++        if googleSignIn == nil {
++            guard let clientId = getClientIdValue() else {
++                call.reject("Google Sign-In not initialized: no client id found in config")
++                return
++            }
++            let scopes = getConfigValue("scopes") as? [String] ?? []
++            loadSignInClient(customClientId: clientId, customScopes: scopes)
++        }
          DispatchQueue.main.async {
              if self.googleSignIn.hasPreviousSignIn() && !self.forceAuthCode {
 -                self.googleSignIn.restorePreviousSignIn() { user, error in
@@ -157,7 +172,10 @@ index 26d5407..766e65b 100644
 +    // Connexion interactive (affiche le sélecteur de compte Google). Garantit
 +    // toujours un resolve/reject : aucun chemin ne laisse la promesse JS pendante.
 +    private func interactiveSignIn(_ call: CAPPluginCall) {
-+        guard let presentingVc = self.bridge?.viewController else {
++        // Le VC de présentation DOIT être au premier plan, sinon GoogleSignIn
++        // n'affiche aucune feuille et ne rappelle jamais son completion (hang sans
++        // UI). On privilégie le bridge Capacitor, avec repli sur le top-most VC.
++        guard let presentingVc = self.bridge?.viewController ?? GoogleAuth.topMostViewController() else {
 +            self.signInCall?.reject("No presenting view controller available")
 +            return
 +        }
@@ -180,6 +198,20 @@ index 26d5407..766e65b 100644
          }
      }
  
++    // Contrôleur réellement au premier plan (repli si bridge.viewController est nil
++    // ou n'est plus présentable au moment du clic).
++    private static func topMostViewController() -> UIViewController? {
++        let keyWindow = UIApplication.shared.connectedScenes
++            .compactMap { $0 as? UIWindowScene }
++            .flatMap { $0.windows }
++            .first { $0.isKeyWindow }
++        var top = keyWindow?.rootViewController
++        while let presented = top?.presentedViewController {
++            top = presented
++        }
++        return top
++    }
++
      @objc
      func refresh(_ call: CAPPluginCall) {
          DispatchQueue.main.async {
@@ -215,7 +247,7 @@ index 26d5407..766e65b 100644
              }
          }
      }
-@@ -131,65 +138,62 @@ public class GoogleAuth: CAPPlugin {
+@@ -131,65 +168,62 @@ public class GoogleAuth: CAPPlugin {
      func signOut(_ call: CAPPluginCall) {
          DispatchQueue.main.async {
              if self.googleSignIn != nil {

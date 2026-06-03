@@ -37,6 +37,28 @@ function withTimeout<T>(
   ]);
 }
 
+// ─── Instrumentation Google natif ───────────────────────────────────────────
+// Logs horodatés visibles dans Safari → Develop → [device] → JSContext.
+// Filtrer la console sur "[GoogleAuth]" : la dernière étape ":start" SANS son
+// ":done", ou un message "step=XXX timed out", désigne EXACTEMENT où ça bloque.
+const GA_TAG = "[GoogleAuth]";
+function gaLog(step: string, extra?: unknown): void {
+  if (extra !== undefined) {
+    console.log(`${GA_TAG} ${step}`, extra);
+  } else {
+    console.log(`${GA_TAG} ${step}`);
+  }
+}
+
+// Timeouts PAR ÉTAPE : chaque label révèle l'étape qui pend. Volontairement plus
+// courts que le garde-fou global pour qu'un hang d'une sous-étape rejette vite et
+// avec un label précis (IMPORT / INITIALIZE / SIGNOUT / SIGNIN / SUPABASE).
+const GA_IMPORT_TIMEOUT_MS = 8_000;
+const GA_INITIALIZE_TIMEOUT_MS = 8_000;
+const GA_SIGNOUT_TIMEOUT_MS = 5_000;
+const GA_SIGNIN_TIMEOUT_MS = 60_000; // interaction utilisateur : fenêtre large
+const GA_SUPABASE_TIMEOUT_MS = 15_000;
+
 // Nonce pour Sign in with Apple (sécurité anti-rejeu, exigé par Supabase).
 // Flux : on envoie le nonce HASHÉ (SHA-256) à Apple → le token contient ce hash ;
 // on passe le nonce BRUT à Supabase, qui le re-hashe et compare. Cf. doc Supabase.
@@ -277,18 +299,36 @@ let googleAuthInitPromise: Promise<GoogleAuthPlugin> | null = null;
 async function getGoogleAuth(): Promise<GoogleAuthPlugin> {
   if (!googleAuthInitPromise) {
     const init = (async () => {
-      const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
-      await GoogleAuth.initialize({
-        scopes: ["profile", "email"],
-        grantOfflineAccess: false,
-      });
-      return GoogleAuth;
+      gaLog("import:start");
+      const mod = await withTimeout(
+        import("@southdevs/capacitor-google-auth"),
+        GA_IMPORT_TIMEOUT_MS,
+        `${GA_TAG} step=IMPORT`
+      );
+      gaLog("import:done → initialize:start");
+      // Timeout À L'INTÉRIEUR de l'init : sans ça, une init qui pend ne rejette
+      // jamais, le singleton reste "empoisonné" (promesse pendante mise en cache)
+      // et TOUS les clics suivants réutilisent cette promesse bloquée.
+      await withTimeout(
+        mod.GoogleAuth.initialize({
+          scopes: ["profile", "email"],
+          grantOfflineAccess: false,
+        }),
+        GA_INITIALIZE_TIMEOUT_MS,
+        `${GA_TAG} step=INITIALIZE`
+      );
+      gaLog("initialize:done");
+      return mod.GoogleAuth;
     })();
-    // Si l'init échoue, on vide le cache pour permettre un nouvel essai propre.
-    init.catch(() => {
+    // Si l'init échoue (y compris via timeout d'étape), on vide le cache pour
+    // permettre un nouvel essai propre au clic suivant.
+    init.catch((e: unknown) => {
+      gaLog("init:rejected → reset singleton", e);
       googleAuthInitPromise = null;
     });
     googleAuthInitPromise = init;
+  } else {
+    gaLog("init:reuse cached promise");
   }
   return googleAuthInitPromise;
 }
@@ -316,43 +356,59 @@ async function signInWithGoogleNative(): Promise<{
   success: boolean;
   error?: string;
 }> {
+  gaLog(
+    `flow:enter platform=${Capacitor.getPlatform()} native=${Capacitor.isNativePlatform()}`
+  );
   try {
-    // L'init est garantie unique (singleton). On fait un signOut() AWAITÉ juste
-    // avant signIn() : indispensable côté iOS, sinon le SDK tente un
-    // `restorePreviousSignIn` qui peut rester PENDANT (ni résolu ni rejeté) →
-    // le bouton reste bloqué en "Chargement…". Comme tout est enveloppé dans
-    // withTimeout, même un appel natif qui ne répond pas finit par rejeter.
+    // 1) Import + initialize (singleton), chacun avec son propre timeout/label.
+    const GoogleAuth = await getGoogleAuth();
+
+    // 2) signOut() best-effort AVEC timeout d'étape isolé. Un `.catch()` ne
+    // protège PAS d'un hang : sans timeout dédié, un signOut() natif qui ne
+    // résout jamais bloquerait tout. On l'isole donc, et on continue vers
+    // signIn() quoi qu'il arrive (échec/timeout = non fatal).
+    gaLog("signOut:start (best-effort)");
+    try {
+      await withTimeout(
+        GoogleAuth.signOut(),
+        GA_SIGNOUT_TIMEOUT_MS,
+        `${GA_TAG} step=SIGNOUT`
+      );
+      gaLog("signOut:done");
+    } catch (e: unknown) {
+      gaLog("signOut:failed-or-timeout (non-fatal, on continue)", e);
+    }
+
+    // 3) signIn() — c'est ICI que le sélecteur de compte Google doit apparaître.
+    // Si "signIn:start" s'affiche SANS modale et SANS "signIn:done", le blocage
+    // est natif (présentation impossible / completion jamais rappelé).
+    gaLog("signIn:start (le sélecteur Google doit s'afficher maintenant)");
     const googleUser = await withTimeout(
-      (async () => {
-        const GoogleAuth = await getGoogleAuth();
-        // Nettoie l'état natif (compte mis en cache) avant de redemander :
-        // évite le hang iOS + force le sélecteur de compte. Best-effort.
-        await GoogleAuth.signOut().catch(() => {});
-        return GoogleAuth.signIn({ scopes: ["profile", "email"] });
-      })(),
-      NATIVE_SIGNIN_TIMEOUT_MS,
-      "Google Sign In"
+      GoogleAuth.signIn({ scopes: ["profile", "email"] }),
+      GA_SIGNIN_TIMEOUT_MS,
+      `${GA_TAG} step=SIGNIN`
     );
+    gaLog("signIn:done");
 
     const idToken = googleUser?.authentication?.idToken;
     if (!idToken) {
       throw new Error("No ID token returned from Google Sign In");
     }
+    gaLog("idToken:received → supabase:start");
 
-    // Exchange the Google ID token with Supabase.
-    // Timeout également ici : sans ça, un appel réseau Supabase qui pend
-    // laisserait le bouton bloqué en "Chargement…" indéfiniment.
+    // 4) Exchange the Google ID token with Supabase.
     const supabase = createClient();
     const { data, error } = await withTimeout(
       supabase.auth.signInWithIdToken({
         provider: "google",
         token: idToken,
       }),
-      NATIVE_SIGNIN_TIMEOUT_MS,
-      "Supabase signInWithIdToken"
+      GA_SUPABASE_TIMEOUT_MS,
+      `${GA_TAG} step=SUPABASE`
     );
 
     if (error) throw error;
+    gaLog("supabase:done");
 
     // Sync session to cookies for Plasmic — BEST-EFFORT. La session est déjà persistée
     // en localStorage par signInWithIdToken ; ce sync ne doit JAMAIS bloquer ni faire
