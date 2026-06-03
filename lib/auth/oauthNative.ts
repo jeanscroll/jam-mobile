@@ -75,6 +75,11 @@ function gaOverlayAppend(line: string): void {
   const ts = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
   const row = document.createElement("div");
   row.textContent = `${ts}  ${line}`;
+  // Met en évidence (rouge) les erreurs / timeouts pour les repérer d'un coup d'œil.
+  if (/error|timed out|fail|reject/i.test(line)) {
+    row.style.color = "#ff5b5b";
+    row.style.fontWeight = "bold";
+  }
   box.appendChild(row);
   // Garde les ~40 dernières lignes.
   while (box.childElementCount > 40) box.removeChild(box.firstChild as Node);
