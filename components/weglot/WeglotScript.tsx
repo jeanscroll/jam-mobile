@@ -13,13 +13,13 @@ export default function WeglotScript() {
     script.src = "https://cdn.weglot.com/weglot.min.js";
     script.async = true;
     script.onload = () => {
-      // @ts-ignore
+      // @ts-expect-error Weglot est un global injecté par le script CDN (non typé)
       if (typeof Weglot !== "undefined") {
-        // @ts-ignore
+        // @ts-expect-error Weglot est un global injecté par le script CDN (non typé)
         Weglot.initialize({
-          api_key: "wg_7a994a95d8a52ee847d1d76f13c919c67",
+          api_key: "wg_d329a44473da57760d76b809239d58082",
           originalLanguage: "fr",
-          destinationLanguages: ["en", "es"],
+          destinationLanguages: ["en"],
           autoSwitch: false,
           // IMPORTANT : l'app est une SPA Next.js + Plasmic rendue côté client.
           // `dynamic: true` est INDISPENSABLE : sans ça, Weglot ne traduit que le

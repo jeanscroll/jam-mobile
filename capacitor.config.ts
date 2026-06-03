@@ -10,18 +10,7 @@ const config: CapacitorConfig = {
   webDir: "out",
   server: {
     androidScheme: "https",
-    // iOS servait l'app depuis `capacitor://localhost` : une origine non-standard
-    // que l'API de traduction Weglot (soumise au CORS) n'autorise pas → les
-    // dictionnaires EN n'étaient jamais chargés → "le drapeau ne fait rien".
-    // Cf. https://support.weglot.com/article/390-weglot-and-cors-policies
-    iosScheme: "https",
-    // On sert le bundle LOCAL (webDir) sous l'origine du domaine prod déjà
-    // autorisé dans le projet Weglot (où la version web se traduit : job-around-me.com).
-    // Weglot voit alors un domaine reconnu → CORS OK → switchTo('en') traduit.
-    // NB: l'OAuth natif (Google/Apple) passe par le schéma `com.jam.mobile://`,
-    // indépendant de cette origine → non impacté. Seul effet de bord : la session
-    // Supabase (localStorage, scoping par origine) impose UNE reconnexion.
-    hostname: "job-around-me.com",
+    iosScheme: "capacitor",
   },
   plugins: {
     GoogleAuth: {

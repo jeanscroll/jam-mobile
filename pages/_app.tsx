@@ -11,7 +11,6 @@ import "@/styles/globals.css";
 import "@/styles/fonts.css";
 import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
-import WeglotDebug from "@/components/weglot/WeglotDebug";
 import {
   initializeOAuthListener,
   isNativePlatform,
@@ -145,7 +144,6 @@ function MyApp({ Component, pageProps }: AppProps) {
         <Component {...pageProps} />
         <CrispChat disabledRoutes={CRISP_DISABLED_ROUTES} />
         <WeglotScript />
-        <WeglotDebug />
       </>
     </PostHogProvider>
   );
