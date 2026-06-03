@@ -14,10 +14,10 @@ index 28d5e6d..0978540 100644
      s.static_framework = true
    end
 diff --git a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-index 26d5407..6e51e61 100644
+index 26d5407..766e65b 100644
 --- a/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
 +++ b/node_modules/@southdevs/capacitor-google-auth/ios/Plugin/Plugin.swift
-@@ -3,104 +3,97 @@ import Capacitor
+@@ -3,126 +3,133 @@ import Capacitor
  import GoogleSignIn
  
  /**
@@ -45,13 +45,13 @@ index 26d5407..6e51e61 100644
      ) {
 -        googleSignIn = GIDSignIn.sharedInstance;
 +        googleSignIn = GIDSignIn.sharedInstance
- 
+         
 -        let serverClientId = getServerClientIdValue();
 +        let serverClientId = getServerClientIdValue()
  
          googleSignInConfiguration = GIDConfiguration.init(clientID: customClientId, serverClientID: serverClientId)
 +        GIDSignIn.sharedInstance.configuration = googleSignInConfiguration
- 
+         
 -        // these are scopes granted by default by the signIn method
 -        let defaultGrantedScopes = ["email", "profile", "openid"];
 -        // these are scopes we will need to request after sign in
@@ -95,7 +95,7 @@ index 26d5407..6e51e61 100644
              getConfigValue("forceCodeForRefreshToken") as? Bool ?? false
 -        );
 +        )
- 
+         
 -        // load client
          self.loadSignInClient(
              customClientId: clientId,
@@ -118,12 +118,13 @@ index 26d5407..6e51e61 100644
 -                }
 -                self.resolveSignInCallWith(user: user!)
 +                self.googleSignIn.restorePreviousSignIn { user, error in
-+                    if let error = error {
-+                        self.signInCall?.reject(error.localizedDescription)
-+                        return
-+                    }
 +                    if let user = user {
 +                        self.resolveSignInCallWith(user: user)
++                    } else {
++                        // Session restaurée invalide/expirée (user==nil) OU erreur :
++                        // on bascule en connexion interactive au lieu de laisser le
++                        // call pendre indéfiniment (bouton bloqué sur "Chargement…").
++                        self.interactiveSignIn(call)
 +                    }
                  }
              } else {
@@ -142,32 +143,43 @@ index 26d5407..6e51e61 100644
 -                }
 -                let googleSignInConfiguration = GIDConfiguration.init(clientID: clientId, serverClientID: serverClientId)
 -                self.googleSignIn.signIn(with: googleSignInConfiguration, presenting: presentingVc, hint: nil, additionalScopes: additionalScopes) { user, error in
-+                let presentingVc = self.bridge!.viewController!
-+                let scopes = call.getArray("scopes", String.self) ?? []
-+
-+                self.googleSignIn.signIn(
-+                    withPresenting: presentingVc,
-+                    hint: nil,
-+                    additionalScopes: scopes
-+                ) { signInResult, error in
-                     if let error = error {
+-                    if let error = error {
 -                        self.signInCall?.reject(error.localizedDescription, "\(error._code)");
 -                        return;
-+                        self.signInCall?.reject(error.localizedDescription, "\(error._code)")
-+                        return
-+                    }
-+                    guard let user = signInResult?.user else {
-+                        self.signInCall?.reject("No user returned from Google Sign-In")
-+                        return
-                     }
+-                    }
 -                    self.resolveSignInCallWith(user: user!);
 -                };
-+                    self.resolveSignInCallWith(user: user)
-+                }
++                self.interactiveSignIn(call)
++            }
++        }
++    }
++
++    // Connexion interactive (affiche le sélecteur de compte Google). Garantit
++    // toujours un resolve/reject : aucun chemin ne laisse la promesse JS pendante.
++    private func interactiveSignIn(_ call: CAPPluginCall) {
++        guard let presentingVc = self.bridge?.viewController else {
++            self.signInCall?.reject("No presenting view controller available")
++            return
++        }
++        let scopes = call.getArray("scopes", String.self) ?? []
++
++        self.googleSignIn.signIn(
++            withPresenting: presentingVc,
++            hint: nil,
++            additionalScopes: scopes
++        ) { signInResult, error in
++            if let error = error {
++                self.signInCall?.reject(error.localizedDescription, "\(error._code)")
++                return
++            }
++            guard let user = signInResult?.user else {
++                self.signInCall?.reject("No user returned from Google Sign-In")
++                return
              }
++            self.resolveSignInCallWith(user: user)
          }
      }
-@@ -108,21 +101,25 @@ public class GoogleAuth: CAPPlugin {
+ 
      @objc
      func refresh(_ call: CAPPluginCall) {
          DispatchQueue.main.async {
@@ -203,7 +215,7 @@ index 26d5407..6e51e61 100644
              }
          }
      }
-@@ -131,65 +128,62 @@ public class GoogleAuth: CAPPlugin {
+@@ -131,65 +138,62 @@ public class GoogleAuth: CAPPlugin {
      func signOut(_ call: CAPPluginCall) {
          DispatchQueue.main.async {
              if self.googleSignIn != nil {
@@ -232,7 +244,7 @@ index 26d5407..6e51e61 100644
 -        googleSignIn.handle(url);
 +        googleSignIn.handle(url)
      }
- 
+     
 -    
      func getClientIdValue() -> String? {
          if let clientId = getConfig().getString("iosClientId") {
@@ -256,7 +268,7 @@ index 26d5407..6e51e61 100644
 -        return nil;
 +        return nil
      }
- 
+     
      func getServerClientIdValue() -> String? {
          if let serverClientId = getConfig().getString("serverClientId") {
 -            return serverClientId;

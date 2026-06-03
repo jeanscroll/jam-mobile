@@ -17,20 +17,22 @@ const OAUTH_CALLBACK_URL = "com.jam.mobile://auth/callback";
 const WEB_CALLBACK_URL = "/auth/oauth-callback";
 
 // Garde-fou : empêche un appel SDK natif de laisser le bouton en "chargement infini".
-const NATIVE_SIGNIN_TIMEOUT_MS = 30_000;
+// 15s : le natif ne pend plus (cf. patch @southdevs : signIn résout/rejette toujours),
+// ce timeout ne couvre donc plus qu'un blocage réseau/SDK réellement anormal.
+const NATIVE_SIGNIN_TIMEOUT_MS = 15_000;
 
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
-  label: string,
+  label: string
 ): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
       setTimeout(
         () => reject(new Error(`${label} timed out after ${ms}ms`)),
-        ms,
-      ),
+        ms
+      )
     ),
   ]);
 }
@@ -48,7 +50,7 @@ async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hashBuffer), (b) =>
-    b.toString(16).padStart(2, "0"),
+    b.toString(16).padStart(2, "0")
   ).join("");
 }
 
@@ -79,7 +81,7 @@ export function getOAuthRedirectUrl(): string {
  */
 export function initializeOAuthListener(
   onSuccess: () => void,
-  onError: (error: Error) => void,
+  onError: (error: Error) => void
 ): () => void {
   if (!isNativePlatform()) {
     // No-op for web
@@ -94,10 +96,10 @@ export function initializeOAuthListener(
 
     // Check if this is our OAuth or email verification callback
     const isOAuthCallback = event.url.startsWith(
-      "com.jam.mobile://auth/callback",
+      "com.jam.mobile://auth/callback"
     );
     const isEmailCallback = event.url.startsWith(
-      "com.jam.mobile://auth/email-callback",
+      "com.jam.mobile://auth/email-callback"
     );
     if (!isOAuthCallback && !isEmailCallback) return;
 
@@ -112,7 +114,7 @@ export function initializeOAuthListener(
     if (urlParams.get("error")) {
       console.warn(
         "OAuth callback error from server:",
-        urlParams.get("error_description"),
+        urlParams.get("error_description")
       );
       return;
     }
@@ -126,7 +128,7 @@ export function initializeOAuthListener(
 
       if (!accessToken) {
         onError(
-          new Error("No authorization code or tokens found in callback URL"),
+          new Error("No authorization code or tokens found in callback URL")
         );
         return;
       }
@@ -170,7 +172,7 @@ export function initializeOAuthListener(
       if (data.session) {
         await syncSessionToCookies(
           data.session.access_token,
-          data.session.refresh_token,
+          data.session.refresh_token
         );
       }
 
@@ -207,8 +209,9 @@ async function signInWithAppleNative(): Promise<{
 
     const result = await withTimeout(
       (async () => {
-        const { SignInWithApple } =
-          await import("@capacitor-community/apple-sign-in");
+        const { SignInWithApple } = await import(
+          "@capacitor-community/apple-sign-in"
+        );
         return SignInWithApple.authorize({
           clientId: "com.jam.mobile",
           redirectURI: OAUTH_CALLBACK_URL,
@@ -218,7 +221,7 @@ async function signInWithAppleNative(): Promise<{
         });
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
-      "Apple Sign In",
+      "Apple Sign In"
     );
 
     const identityToken = result.response.identityToken;
@@ -244,7 +247,7 @@ async function signInWithAppleNative(): Promise<{
       try {
         await syncSessionToCookies(
           data.session.access_token,
-          data.session.refresh_token,
+          data.session.refresh_token
         );
       } catch (e) {
         console.warn("Apple: cookie sync non-fatal error:", e);
@@ -267,9 +270,11 @@ async function signInWithAppleNative(): Promise<{
 // la durée de vie de l'app. Le ré-initialiser à chaque clic est une cause connue
 // d'instabilité du plugin. Les client IDs proviennent de capacitor.config.ts
 // (auto-chargé par le natif).
-let googleAuthInitPromise: Promise<any> | null = null;
+type GoogleAuthPlugin =
+  typeof import("@southdevs/capacitor-google-auth")["GoogleAuth"];
+let googleAuthInitPromise: Promise<GoogleAuthPlugin> | null = null;
 
-async function getGoogleAuth(): Promise<any> {
+async function getGoogleAuth(): Promise<GoogleAuthPlugin> {
   if (!googleAuthInitPromise) {
     const init = (async () => {
       const { GoogleAuth } = await import("@southdevs/capacitor-google-auth");
@@ -323,10 +328,10 @@ async function signInWithGoogleNative(): Promise<{
         // Nettoie l'état natif (compte mis en cache) avant de redemander :
         // évite le hang iOS + force le sélecteur de compte. Best-effort.
         await GoogleAuth.signOut().catch(() => {});
-        return GoogleAuth.signIn();
+        return GoogleAuth.signIn({ scopes: ["profile", "email"] });
       })(),
       NATIVE_SIGNIN_TIMEOUT_MS,
-      "Google Sign In",
+      "Google Sign In"
     );
 
     const idToken = googleUser?.authentication?.idToken;
@@ -344,7 +349,7 @@ async function signInWithGoogleNative(): Promise<{
         token: idToken,
       }),
       NATIVE_SIGNIN_TIMEOUT_MS,
-      "Supabase signInWithIdToken",
+      "Supabase signInWithIdToken"
     );
 
     if (error) throw error;
@@ -356,7 +361,7 @@ async function signInWithGoogleNative(): Promise<{
       try {
         await syncSessionToCookies(
           data.session.access_token,
-          data.session.refresh_token,
+          data.session.refresh_token
         );
       } catch (e) {
         console.warn("Google: cookie sync non-fatal error:", e);
@@ -365,8 +370,12 @@ async function signInWithGoogleNative(): Promise<{
 
     console.log("Google native sign-in successful");
     return { success: true };
-  } catch (error: any) {
-    const code = error?.code ?? error?.errorCode ?? error?.status;
+  } catch (error: unknown) {
+    const err = error as
+      | { code?: unknown; errorCode?: unknown; status?: unknown }
+      | null
+      | undefined;
+    const code = err?.code ?? err?.errorCode ?? err?.status;
     const message = error instanceof Error ? error.message : String(error);
 
     // Annulation utilisateur : on ne loggue pas en erreur, on réinitialise juste le bouton.
@@ -408,7 +417,7 @@ export async function signOutGoogleNative(): Promise<void> {
  */
 export async function signInWithOAuth(
   provider: "google" | "apple",
-  webRedirectTo?: string,
+  webRedirectTo?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (isNativePlatform()) {
     const platform = Capacitor.getPlatform();
