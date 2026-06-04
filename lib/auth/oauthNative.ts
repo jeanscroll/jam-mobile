@@ -1,10 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
-import {
-  createClient,
-  syncSessionToCookies,
-} from "@/utils/supabase/components";
+import { createClient } from "@/utils/supabase/components";
 
 // NB : le plugin natif @capacitor-community/apple-sign-in est importé
 // DYNAMIQUEMENT au clic, jamais en statique : son ESM n'est pas résolvable par
@@ -141,9 +138,8 @@ export function initializeOAuthListener(
         });
         if (error) throw error;
 
-        // Sync session to cookies so plasmic-supabase's SupabaseUserGlobalContext can find it
-        await syncSessionToCookies(accessToken, refreshToken || "");
-
+        // Le client natif partage déjà le stockage de plasmic-supabase : la session
+        // est lisible directement, pas de pont nécessaire.
         onSuccess();
       } catch (error) {
         console.error("OAuth callback error:", error);
@@ -162,18 +158,12 @@ export function initializeOAuthListener(
     try {
       const supabase = createClient();
 
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) throw error;
 
-      // Sync session to cookies so plasmic-supabase's SupabaseUserGlobalContext can find it
-      if (data.session) {
-        await syncSessionToCookies(
-          data.session.access_token,
-          data.session.refresh_token
-        );
-      }
-
+      // Le client natif partage déjà le stockage de plasmic-supabase : la session
+      // écrite par exchangeCodeForSession est lisible directement après le reload.
       console.log("OAuth session established successfully");
       onSuccess();
     } catch (error) {
@@ -231,7 +221,7 @@ async function signInWithAppleNative(): Promise<{
     // Le nonce BRUT doit être transmis : Supabase le re-hashe et le compare au
     // claim "nonce" (hashé) du token Apple.
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    const { error } = await supabase.auth.signInWithIdToken({
       provider: "apple",
       token: identityToken,
       nonce: rawNonce,
@@ -239,19 +229,8 @@ async function signInWithAppleNative(): Promise<{
 
     if (error) throw error;
 
-    // Sync session to cookies for Plasmic — BEST-EFFORT : ne doit jamais bloquer ni
-    // faire échouer la connexion (sinon retour login sur iOS).
-    if (data.session) {
-      try {
-        await syncSessionToCookies(
-          data.session.access_token,
-          data.session.refresh_token
-        );
-      } catch (e) {
-        console.warn("Apple: cookie sync non-fatal error:", e);
-      }
-    }
-
+    // Le client natif partage déjà le stockage de plasmic-supabase : la session est
+    // lisible directement, pas de pont nécessaire.
     console.log("Apple native sign-in successful");
     return { success: true };
   } catch (error) {
