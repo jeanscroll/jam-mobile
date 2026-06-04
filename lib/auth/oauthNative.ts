@@ -86,25 +86,6 @@ function gaOverlayAppend(line: string): void {
   box.scrollTop = box.scrollHeight;
 }
 
-// Décode (sans vérifier la signature) le payload d'un JWT pour le diagnostic.
-function decodeJwtClaims(token: string): Record<string, unknown> | null {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-    const json = decodeURIComponent(
-      atob(pad)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 function gaLog(step: string, extra?: unknown): void {
   if (extra !== undefined) {
     console.log(`${GA_TAG} ${step}`, extra);
@@ -122,14 +103,9 @@ function gaLog(step: string, extra?: unknown): void {
   }
 }
 
-// Timeouts PAR ÉTAPE : chaque label révèle l'étape qui pend. Volontairement plus
-// courts que le garde-fou global pour qu'un hang d'une sous-étape rejette vite et
-// avec un label précis (IMPORT / INITIALIZE / SIGNOUT / SIGNIN / SUPABASE).
+// Timeouts d'étape pour l'init du SDK natif (encore utilisé par signOutGoogleNative).
 const GA_IMPORT_TIMEOUT_MS = 8_000;
 const GA_INITIALIZE_TIMEOUT_MS = 8_000;
-const GA_SIGNOUT_TIMEOUT_MS = 5_000;
-const GA_SIGNIN_TIMEOUT_MS = 60_000; // interaction utilisateur : fenêtre large
-const GA_SUPABASE_TIMEOUT_MS = 15_000;
 
 // Nonce pour Sign in with Apple (sécurité anti-rejeu, exigé par Supabase).
 // Flux : on envoie le nonce HASHÉ (SHA-256) à Apple → le token contient ce hash ;
@@ -366,10 +342,6 @@ async function signInWithAppleNative(): Promise<{
 // (auto-chargé par le natif).
 type GoogleAuthPlugin =
   typeof import("@southdevs/capacitor-google-auth")["GoogleAuth"];
-// Options de signIn + nonce (non typé par le plugin mais transmis au natif).
-type GoogleSignInArgs = Parameters<GoogleAuthPlugin["signIn"]>[0] & {
-  nonce?: string;
-};
 // On enveloppe le plugin dans un objet simple : voir le commentaire dans l'init.
 type GoogleAuthHandle = { GoogleAuth: GoogleAuthPlugin };
 let googleAuthInitPromise: Promise<GoogleAuthHandle> | null = null;
@@ -418,150 +390,54 @@ async function getGoogleAuth(): Promise<GoogleAuthHandle> {
 }
 
 /**
- * Détecte une annulation par l'utilisateur (fermeture du sélecteur de compte).
- * Ce n'est pas une vraie erreur : le bouton doit simplement se réinitialiser.
- * Android: 12501 (SIGN_IN_CANCELLED) · iOS: -5 / "canceled" · Web: "popup_closed".
+ * Connexion Google via le flux OAuth navigateur (authorization code + PKCE).
+ *
+ * On N'UTILISE PLUS le SDK natif GoogleSignIn : sur iOS il injecte dans l'ID token
+ * un `nonce` qu'on ne peut ni lire ni contrôler (aucune API), et Supabase (hébergé)
+ * rejette alors l'échange `signInWithIdToken` avec
+ * « Passed nonce and nonce in id_token should either both exist or not ».
+ * Doc Supabase : préférer le flux OAuth (authorization code + PKCE) qui évite
+ * complètement le problème de nonce des ID tokens.
+ *
+ * On ouvre donc l'URL OAuth Supabase dans le navigateur in-app ; le retour
+ * `com.jam.mobile://auth/callback?code=...` est capté par `initializeOAuthListener`
+ * (_app.tsx) qui échange le code (PKCE) et établit la session, puis redirige.
+ * → on renvoie `pending: true` : le bouton ne doit PAS naviguer lui-même.
  */
-function isUserCancellation(code: unknown, message: string): boolean {
-  const c = String(code ?? "");
-  return (
-    c === "12501" ||
-    c === "-5" ||
-    /cancel/i.test(message) ||
-    /popup_closed/i.test(message) ||
-    /user.?cancell?ed/i.test(message)
-  );
-}
-
-/**
- * Native Google Sign In using Google SDK (no browser)
- */
-async function signInWithGoogleNative(): Promise<{
+async function signInWithGoogleBrowser(): Promise<{
   success: boolean;
   error?: string;
+  pending?: boolean;
 }> {
-  gaLog(
-    `flow:enter platform=${Capacitor.getPlatform()} native=${Capacitor.isNativePlatform()}`
-  );
+  gaLog(`flow:enter google-browser platform=${Capacitor.getPlatform()}`);
   try {
-    // 1) Import + initialize (singleton), chacun avec son propre timeout/label.
-    const { GoogleAuth } = await getGoogleAuth();
-
-    // 2) signOut() best-effort AVEC timeout d'étape isolé. Un `.catch()` ne
-    // protège PAS d'un hang : sans timeout dédié, un signOut() natif qui ne
-    // résout jamais bloquerait tout. On l'isole donc, et on continue vers
-    // signIn() quoi qu'il arrive (échec/timeout = non fatal).
-    gaLog("signOut:start (best-effort)");
-    try {
-      await withTimeout(
-        GoogleAuth.signOut(),
-        GA_SIGNOUT_TIMEOUT_MS,
-        `${GA_TAG} step=SIGNOUT`
-      );
-      gaLog("signOut:done");
-    } catch (e: unknown) {
-      gaLog("signOut:failed-or-timeout (non-fatal, on continue)", e);
-    }
-
-    // 3) signIn() — c'est ICI que le sélecteur de compte Google doit apparaître.
-    // Si "signIn:start" s'affiche SANS modale et SANS "signIn:done", le blocage
-    // est natif (présentation impossible / completion jamais rappelé).
-    // Nonce : on génère le nôtre. On envoie le HASH (SHA-256) à Google (inscrit
-    // tel quel dans le claim `nonce` du token) et on passera le nonce BRUT à
-    // Supabase, qui le re-hashe et compare. Indispensable : le SDK iOS met
-    // toujours un nonce dans le token ; sans ce nonce maîtrisé, Supabase rejette
-    // ("Passed nonce and nonce in id_token should either both exist or not").
-    const rawNonce = generateRawNonce();
-    const hashedNonce = await sha256Hex(rawNonce);
-    const googleSignInOpts: GoogleSignInArgs = {
-      scopes: ["profile", "email"],
-      nonce: hashedNonce,
-    };
-
-    gaLog("signIn:start (le sélecteur Google doit s'afficher maintenant)");
-    const googleUser = await withTimeout(
-      GoogleAuth.signIn(googleSignInOpts),
-      GA_SIGNIN_TIMEOUT_MS,
-      `${GA_TAG} step=SIGNIN`
-    );
-    gaLog("signIn:done");
-
-    const idToken = googleUser?.authentication?.idToken;
-    if (!idToken) {
-      throw new Error("No ID token returned from Google Sign In");
-    }
-    // Décode les claims du token (diagnostic) : on voit aud / iss / présence de
-    // nonce / exp → de quoi comprendre pourquoi Supabase rejette le cas échéant.
-    const claims = decodeJwtClaims(idToken);
-    gaLog("idToken:received", {
-      len: idToken.length,
-      aud: claims?.aud,
-      iss: claims?.iss,
-      azp: claims?.azp,
-      hasNonce: claims ? "nonce" in claims : "?",
-      exp: claims?.exp,
-    });
-    gaLog("supabase:start");
-
-    // 4) Exchange the Google ID token with Supabase.
     const supabase = createClient();
-    const { data, error } = await withTimeout(
-      supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: idToken,
-        nonce: rawNonce,
-      }),
-      GA_SUPABASE_TIMEOUT_MS,
-      `${GA_TAG} step=SUPABASE`
-    );
+    gaLog("oauth:start (Supabase signInWithOAuth)");
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: OAUTH_CALLBACK_URL,
+        skipBrowserRedirect: true,
+      },
+    });
 
     if (error) {
-      // Log explicite de l'erreur Supabase (message + status + code) AVANT de la
-      // relancer, pour qu'elle apparaisse en rouge dans l'overlay device.
-      gaLog("supabase:ERROR", {
-        message: error.message,
-        status: (error as { status?: unknown }).status,
-        code: (error as { code?: unknown }).code,
-      });
-      throw error;
+      gaLog("oauth:ERROR", error.message);
+      return { success: false, error: error.message };
     }
-    gaLog("supabase:done");
-
-    // Sync session to cookies for Plasmic — BEST-EFFORT. La session est déjà persistée
-    // en localStorage par signInWithIdToken ; ce sync ne doit JAMAIS bloquer ni faire
-    // échouer la connexion (sinon : success:false → pas de redirection sur iOS).
-    if (data.session) {
-      try {
-        await syncSessionToCookies(
-          data.session.access_token,
-          data.session.refresh_token
-        );
-      } catch (e) {
-        console.warn("Google: cookie sync non-fatal error:", e);
-      }
+    if (!data?.url) {
+      gaLog("oauth:ERROR no url returned");
+      return { success: false, error: "No OAuth URL returned" };
     }
 
-    console.log("Google native sign-in successful");
-    return { success: true };
+    gaLog("browser:open (la connexion Google s'ouvre, suite via deep link)");
+    await Browser.open({ url: data.url });
+    return { success: true, pending: true };
   } catch (error: unknown) {
-    const err = error as
-      | { code?: unknown; errorCode?: unknown; status?: unknown }
-      | null
-      | undefined;
-    const code = err?.code ?? err?.errorCode ?? err?.status;
     const message = error instanceof Error ? error.message : String(error);
-
-    // Annulation utilisateur : on ne loggue pas en erreur, on réinitialise juste le bouton.
-    if (isUserCancellation(code, message)) {
-      console.log("Google native sign-in cancelled by user");
-      return { success: false, error: "cancelled" };
-    }
-
-    console.error("Google native sign-in error:", message, "code:", code);
-    return {
-      success: false,
-      error: message,
-    };
+    gaLog("flow:error", message);
+    console.error("Google browser sign-in error:", message);
+    return { success: false, error: message };
   }
 }
 
@@ -591,7 +467,7 @@ export async function signOutGoogleNative(): Promise<void> {
 export async function signInWithOAuth(
   provider: "google" | "apple",
   webRedirectTo?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; pending?: boolean }> {
   if (isNativePlatform()) {
     const platform = Capacitor.getPlatform();
     if (provider === "apple") {
@@ -600,7 +476,8 @@ export async function signInWithOAuth(
       }
       // Apple Sign-In native SDK not available on Android — fall through to web OAuth
     } else if (provider === "google") {
-      return signInWithGoogleNative();
+      // Google natif = flux navigateur OAuth/PKCE (cf. signInWithGoogleBrowser).
+      return signInWithGoogleBrowser();
     }
   }
 

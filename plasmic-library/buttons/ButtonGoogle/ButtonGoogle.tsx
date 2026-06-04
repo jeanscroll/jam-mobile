@@ -1,142 +1,153 @@
 import type React from "react";
-import { type ButtonHTMLAttributes, forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  type ButtonHTMLAttributes,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
 import Image from "next/image";
 import { signInWithOAuth, isNativePlatform } from "@/lib/auth/oauthNative";
 import { presets } from "@/styles/presets";
 
-type HTMLButtonProps = Pick<ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "disabled">;
+type HTMLButtonProps = Pick<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "onClick" | "disabled"
+>;
 
 interface ButtonProps extends HTMLButtonProps {
-    label?: string;
-    icon?: "start" | "end" | "only" | "none";
-    destructive?: boolean;
-    hierarchy?: "primary" | "secondary";
-    size?: "small" | "large";
-    redirectTo?: string;
-    state?: "default" | "hover" | "focused" | "disabled";
-    iconImage?: string;
-    className?: string;
-    authProvider?: "google" | "none";
+  label?: string;
+  icon?: "start" | "end" | "only" | "none";
+  destructive?: boolean;
+  hierarchy?: "primary" | "secondary";
+  size?: "small" | "large";
+  redirectTo?: string;
+  state?: "default" | "hover" | "focused" | "disabled";
+  iconImage?: string;
+  className?: string;
+  authProvider?: "google" | "none";
 }
 
 export interface ButtonActions {
-    click(): void;
+  click(): void;
 }
 
 const AuthButton = forwardRef<ButtonActions, ButtonProps>(
-    (
-        {
-            label = "Button",
-            icon = "none",
-            destructive = false,
-            hierarchy = "primary",
-            size = "large",
-            state = "default",
-            disabled,
-            onClick,
-            iconImage,
-            className,
-            authProvider = "google",
-            redirectTo = "/",
+  (
+    {
+      label = "Button",
+      icon = "none",
+      destructive = false,
+      hierarchy = "primary",
+      size = "large",
+      state = "default",
+      disabled,
+      onClick,
+      iconImage,
+      className,
+      authProvider = "google",
+      redirectTo = "/",
+    },
+    ref
+  ) => {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+      click() {
+        buttonRef.current?.click();
+      },
+    }));
+
+    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (authProvider === "google") {
+        event.preventDefault();
+        setIsLoading(true);
+
+        try {
+          const result = await signInWithOAuth("google", redirectTo);
+
+          if (!result.success) {
+            console.error("Login error:", result.error);
+          } else if (isNativePlatform() && !result.pending) {
+            // Sur natif, Google passe désormais par le flux navigateur OAuth
+            // (result.pending === true) : la redirection est gérée par le
+            // deep-link handler (_app.tsx) après l'échange du code. On ne
+            // navigue donc PAS ici (sinon on quitterait l'écran avant la fin).
+            const target = redirectTo || "/";
+            const safePath = target.startsWith("/") ? target : "/";
+            window.location.href = safePath;
+          }
+        } catch (err) {
+          console.error("Unexpected error:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      } else if (onClick) {
+        onClick(event);
+      }
+    };
+
+    const variants = cva(
+      "flex items-center justify-center gap-3 rounded transition-all outline-none group",
+      {
+        variants: {
+          destructive: {
+            true: "bg-red-500 text-white",
+            false: "bg-blue-500 text-white",
+          },
+          hierarchy: {
+            primary: "bg-blue-500 text-white",
+            secondary: "bg-gray-300 text-black",
+          },
+          size: {
+            small: "py-2 px-4 text-sm",
+            large: "py-3 px-6 text-lg",
+          },
+          state: {
+            default: "",
+            hover: "hover:opacity-90",
+            focused: "focus:ring-2 focus:ring-blue-500",
+            disabled: "opacity-50 cursor-not-allowed",
+          },
         },
-        ref
-    ) => {
-        const buttonRef = useRef<HTMLButtonElement>(null);
-        const [isLoading, setIsLoading] = useState(false);
+        compoundVariants: [
+          {
+            destructive: true,
+            hierarchy: "primary",
+            className: "bg-red-500 text-white",
+          },
+          {
+            destructive: false,
+            hierarchy: "secondary",
+            className: "bg-gray-300 text-black",
+          },
+        ],
+      }
+    );
 
-        useImperativeHandle(ref, () => ({
-            click() {
-                buttonRef.current?.click();
-            },
-        }));
-
-        const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-            if (authProvider === "google") {
-                event.preventDefault();
-                setIsLoading(true);
-
-                try {
-                    const result = await signInWithOAuth("google", redirectTo);
-
-                    if (!result.success) {
-                        console.error("Login error:", result.error);
-                    } else if (isNativePlatform()) {
-                        // Native SDK flow completes inline (no deep link needed)
-                        // Force full page reload so SupabaseUserGlobalContext re-mounts.
-                        // On web, Supabase already initiated the redirect to Google —
-                        // overriding window.location here would cancel it.
-                        const target = redirectTo || "/";
-                        const safePath = target.startsWith("/") ? target : "/";
-                        window.location.href = safePath;
-                    }
-                } catch (err) {
-                    console.error("Unexpected error:", err);
-                } finally {
-                    setIsLoading(false);
-                }
-            } else if (onClick) {
-                onClick(event);
-            }
-        };
-
-
-        const variants = cva(
-            "flex items-center justify-center gap-3 rounded transition-all outline-none group",
-            {
-                variants: {
-                    destructive: {
-                        true: "bg-red-500 text-white",
-                        false: "bg-blue-500 text-white",
-                    },
-                    hierarchy: {
-                        primary: "bg-blue-500 text-white",
-                        secondary: "bg-gray-300 text-black",
-                    },
-                    size: {
-                        small: "py-2 px-4 text-sm",
-                        large: "py-3 px-6 text-lg",
-                    },
-                    state: {
-                        default: "",
-                        hover: "hover:opacity-90",
-                        focused: "focus:ring-2 focus:ring-blue-500",
-                        disabled: "opacity-50 cursor-not-allowed",
-                    },
-                },
-                compoundVariants: [
-                    {
-                        destructive: true,
-                        hierarchy: "primary",
-                        className: "bg-red-500 text-white",
-                    },
-                    {
-                        destructive: false,
-                        hierarchy: "secondary",
-                        className: "bg-gray-300 text-black",
-                    },
-                ],
-            }
-        );
-
-        
-        return (
-            <button
-                ref={buttonRef}
-                onClick={handleClick}
-                disabled={disabled || isLoading}
-                className={cn(variants({ destructive, hierarchy, size, state }), className)}
-                type="button"
-                style={presets.oAuthButton as React.CSSProperties}
-            >
-                {iconImage && (icon === "start" || icon === "end" || icon === "only") && (
-                    <Image src={iconImage} alt="Icon" width={20} height={20} />
-                )}
-                {icon !== "only" && <span>{isLoading ? "Chargement..." : label}</span>}
-            </button>
-        );
-    }
+    return (
+      <button
+        ref={buttonRef}
+        onClick={handleClick}
+        disabled={disabled || isLoading}
+        className={cn(
+          variants({ destructive, hierarchy, size, state }),
+          className
+        )}
+        type="button"
+        style={presets.oAuthButton as React.CSSProperties}
+      >
+        {iconImage &&
+          (icon === "start" || icon === "end" || icon === "only") && (
+            <Image src={iconImage} alt="Icon" width={20} height={20} />
+          )}
+        {icon !== "only" && <span>{isLoading ? "Chargement..." : label}</span>}
+      </button>
+    );
+  }
 );
 
 AuthButton.displayName = "AuthButton";
