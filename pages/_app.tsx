@@ -14,7 +14,6 @@ import WeglotScript from "@/components/weglot/WeglotScript";
 import {
   initializeOAuthListener,
   isNativePlatform,
-  signOutGoogleNative,
 } from "@/lib/auth/oauthNative";
 import {
   initRevenueCat,
@@ -63,26 +62,6 @@ function MyApp({ Component, pageProps }: AppProps) {
 
     return cleanup;
   }, [router]);
-
-  // Au logout, on déconnecte aussi le SDK Google natif (toutes plateformes natives).
-  // Indispensable : sans ça l'état natif Google reste "sale" après une déconnexion,
-  // ce qui cassait par intermittence la connexion Google suivante. Le faire ici (bien
-  // séparé dans le temps du prochain signIn) évite la race signOut→signIn et garantit
-  // que le sélecteur de compte réapparaît à la reconnexion.
-  useEffect(() => {
-    if (!isNativePlatform()) return;
-
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
-        void signOutGoogleNative();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Initialize RevenueCat (iOS-only) and bind to the Supabase user identity.
   // - configure() runs once on first mount with the current session id (if any)

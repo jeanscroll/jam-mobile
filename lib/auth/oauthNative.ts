@@ -6,19 +6,17 @@ import {
   syncSessionToCookies,
 } from "@/utils/supabase/components";
 
-// NB : les plugins natifs (@capacitor-community/apple-sign-in,
-// @southdevs/capacitor-google-auth) sont importés DYNAMIQUEMENT au clic, jamais
-// en statique : leur ESM n'est pas résolvable par Node et casserait le build
-// Next ("Collecting page data"). Le withTimeout ci-dessous couvre l'import ET
-// l'appel SDK, donc même un chunk qui ne se charge pas ne bloque plus le bouton.
+// NB : le plugin natif @capacitor-community/apple-sign-in est importé
+// DYNAMIQUEMENT au clic, jamais en statique : son ESM n'est pas résolvable par
+// Node et casserait le build Next ("Collecting page data"). Le withTimeout
+// ci-dessous couvre l'import ET l'appel SDK, donc même un chunk qui ne se charge
+// pas ne bloque plus le bouton.
 
 // Constants
 const OAUTH_CALLBACK_URL = "com.jam.mobile://auth/callback";
 const WEB_CALLBACK_URL = "/auth/oauth-callback";
 
 // Garde-fou : empêche un appel SDK natif de laisser le bouton en "chargement infini".
-// 15s : le natif ne pend plus (cf. patch @southdevs : signIn résout/rejette toujours),
-// ce timeout ne couvre donc plus qu'un blocage réseau/SDK réellement anormal.
 const NATIVE_SIGNIN_TIMEOUT_MS = 15_000;
 
 function withTimeout<T>(
@@ -36,76 +34,6 @@ function withTimeout<T>(
     ),
   ]);
 }
-
-// ─── Instrumentation Google natif ───────────────────────────────────────────
-// Logs horodatés visibles dans Safari → Develop → [device] → JSContext.
-// Filtrer la console sur "[GoogleAuth]" : la dernière étape ":start" SANS son
-// ":done", ou un message "step=XXX timed out", désigne EXACTEMENT où ça bloque.
-const GA_TAG = "[GoogleAuth]";
-
-// Overlay visuel À L'ÉCRAN : affiche chaque étape directement dans l'app (pas
-// besoin de Safari Web Inspector). Non bloquant (pointer-events: none → ne gêne
-// jamais le clic). Actif uniquement en natif. Tape sur 🐞 nettoie / masque.
-function gaOverlayAppend(line: string): void {
-  if (typeof document === "undefined") return;
-  if (!isNativePlatform()) return;
-  const ID = "ga-debug-overlay";
-  let box = document.getElementById(ID);
-  if (!box) {
-    box = document.createElement("div");
-    box.id = ID;
-    box.style.cssText = [
-      "position:fixed",
-      "top:env(safe-area-inset-top,0px)",
-      "left:0",
-      "right:0",
-      "max-height:45vh",
-      "overflow:auto",
-      "z-index:2147483647",
-      "background:rgba(0,0,0,0.82)",
-      "color:#0f0",
-      "font:11px/1.35 ui-monospace,Menlo,monospace",
-      "padding:6px 8px",
-      "white-space:pre-wrap",
-      "word-break:break-word",
-      "pointer-events:none",
-    ].join(";");
-    document.body.appendChild(box);
-  }
-  const ts = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
-  const row = document.createElement("div");
-  row.textContent = `${ts}  ${line}`;
-  // Met en évidence (rouge) les erreurs / timeouts pour les repérer d'un coup d'œil.
-  if (/error|timed out|fail|reject/i.test(line)) {
-    row.style.color = "#ff5b5b";
-    row.style.fontWeight = "bold";
-  }
-  box.appendChild(row);
-  // Garde les ~40 dernières lignes.
-  while (box.childElementCount > 40) box.removeChild(box.firstChild as Node);
-  box.scrollTop = box.scrollHeight;
-}
-
-function gaLog(step: string, extra?: unknown): void {
-  if (extra !== undefined) {
-    console.log(`${GA_TAG} ${step}`, extra);
-    let suffix = "";
-    try {
-      suffix =
-        " " + (extra instanceof Error ? extra.message : JSON.stringify(extra));
-    } catch {
-      suffix = " " + String(extra);
-    }
-    gaOverlayAppend(`${GA_TAG} ${step}${suffix}`);
-  } else {
-    console.log(`${GA_TAG} ${step}`);
-    gaOverlayAppend(`${GA_TAG} ${step}`);
-  }
-}
-
-// Timeouts d'étape pour l'init du SDK natif (encore utilisé par signOutGoogleNative).
-const GA_IMPORT_TIMEOUT_MS = 8_000;
-const GA_INITIALIZE_TIMEOUT_MS = 8_000;
 
 // Nonce pour Sign in with Apple (sécurité anti-rejeu, exigé par Supabase).
 // Flux : on envoie le nonce HASHÉ (SHA-256) à Apple → le token contient ce hash ;
@@ -146,8 +74,8 @@ export function getOAuthRedirectUrl(): string {
 }
 
 /**
- * Initialize the deep link listener for OAuth callbacks (email verification, etc.)
- * Call this once in _app.tsx or a root component
+ * Initialize the deep link listener for OAuth callbacks (Google sign-in, email
+ * verification, etc.). Call this once in _app.tsx or a root component.
  */
 export function initializeOAuthListener(
   onSuccess: () => void,
@@ -311,8 +239,8 @@ async function signInWithAppleNative(): Promise<{
 
     if (error) throw error;
 
-    // Sync session to cookies for Plasmic — BEST-EFFORT (cf. Google ci-dessous) : ne
-    // doit jamais bloquer ni faire échouer la connexion (sinon retour login sur iOS).
+    // Sync session to cookies for Plasmic — BEST-EFFORT : ne doit jamais bloquer ni
+    // faire échouer la connexion (sinon retour login sur iOS).
     if (data.session) {
       try {
         await syncSessionToCookies(
@@ -335,73 +263,17 @@ async function signInWithAppleNative(): Promise<{
   }
 }
 
-// Singleton d'initialisation du SDK Google natif.
-// IMPORTANT : `GoogleAuth.initialize()` ne doit s'exécuter qu'UNE SEULE fois sur
-// la durée de vie de l'app. Le ré-initialiser à chaque clic est une cause connue
-// d'instabilité du plugin. Les client IDs proviennent de capacitor.config.ts
-// (auto-chargé par le natif).
-type GoogleAuthPlugin =
-  typeof import("@southdevs/capacitor-google-auth")["GoogleAuth"];
-// On enveloppe le plugin dans un objet simple : voir le commentaire dans l'init.
-type GoogleAuthHandle = { GoogleAuth: GoogleAuthPlugin };
-let googleAuthInitPromise: Promise<GoogleAuthHandle> | null = null;
-
-async function getGoogleAuth(): Promise<GoogleAuthHandle> {
-  if (!googleAuthInitPromise) {
-    const init = (async () => {
-      gaLog("import:start");
-      const mod = await withTimeout(
-        import("@southdevs/capacitor-google-auth"),
-        GA_IMPORT_TIMEOUT_MS,
-        `${GA_TAG} step=IMPORT`
-      );
-      gaLog("import:done → initialize:start");
-      // Timeout À L'INTÉRIEUR de l'init : sans ça, une init qui pend ne rejette
-      // jamais, le singleton reste "empoisonné" (promesse pendante mise en cache)
-      // et TOUS les clics suivants réutilisent cette promesse bloquée.
-      await withTimeout(
-        mod.GoogleAuth.initialize({
-          scopes: ["profile", "email"],
-          grantOfflineAccess: false,
-        }),
-        GA_INITIALIZE_TIMEOUT_MS,
-        `${GA_TAG} step=INITIALIZE`
-      );
-      gaLog("initialize:done");
-      // ⚠️ CAUSE RACINE du bouton bloqué : NE JAMAIS résoudre une promesse avec le
-      // proxy Capacitor directement. Son handler `get` renvoie une fonction pour
-      // TOUTE propriété (y compris `.then`), donc `await proxy` le prend pour un
-      // thenable et appelle `proxy.then(resolve, reject)` → routé comme méthode
-      // native "then" inexistante → resolve/reject JAMAIS appelés → hang infini.
-      // On le retourne donc enveloppé dans un objet simple (`.then` === undefined).
-      return { GoogleAuth: mod.GoogleAuth };
-    })();
-    // Si l'init échoue (y compris via timeout d'étape), on vide le cache pour
-    // permettre un nouvel essai propre au clic suivant.
-    init.catch((e: unknown) => {
-      gaLog("init:rejected → reset singleton", e);
-      googleAuthInitPromise = null;
-    });
-    googleAuthInitPromise = init;
-  } else {
-    gaLog("init:reuse cached promise");
-  }
-  return googleAuthInitPromise;
-}
-
 /**
  * Connexion Google via le flux OAuth navigateur (authorization code + PKCE).
  *
- * On N'UTILISE PLUS le SDK natif GoogleSignIn : sur iOS il injecte dans l'ID token
- * un `nonce` qu'on ne peut ni lire ni contrôler (aucune API), et Supabase (hébergé)
- * rejette alors l'échange `signInWithIdToken` avec
- * « Passed nonce and nonce in id_token should either both exist or not ».
- * Doc Supabase : préférer le flux OAuth (authorization code + PKCE) qui évite
- * complètement le problème de nonce des ID tokens.
+ * On n'utilise PAS le SDK natif GoogleSignIn : sur iOS il injecte dans l'ID token
+ * un `nonce` qu'on ne peut ni lire ni contrôler, et Supabase (hébergé) rejette
+ * alors l'échange `signInWithIdToken`. Doc Supabase : préférer le flux OAuth
+ * (authorization code + PKCE), qui évite complètement le problème de nonce.
  *
- * On ouvre donc l'URL OAuth Supabase dans le navigateur in-app ; le retour
+ * On ouvre l'URL OAuth Supabase dans le navigateur in-app ; le retour
  * `com.jam.mobile://auth/callback?code=...` est capté par `initializeOAuthListener`
- * (_app.tsx) qui échange le code (PKCE) et établit la session, puis redirige.
+ * (_app.tsx) qui échange le code (PKCE), établit la session et redirige.
  * → on renvoie `pending: true` : le bouton ne doit PAS naviguer lui-même.
  */
 async function signInWithGoogleBrowser(): Promise<{
@@ -409,60 +281,37 @@ async function signInWithGoogleBrowser(): Promise<{
   error?: string;
   pending?: boolean;
 }> {
-  gaLog(`flow:enter google-browser platform=${Capacitor.getPlatform()}`);
   try {
     const supabase = createClient();
-    gaLog("oauth:start (Supabase signInWithOAuth)");
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: OAUTH_CALLBACK_URL,
         skipBrowserRedirect: true,
+        // `prompt: select_account` : force Google à TOUJOURS afficher le sélecteur
+        // de compte. Sans ça, le navigateur in-app réutilise silencieusement la
+        // session Google → impossible de changer de compte, et la reconnexion après
+        // déconnexion repart sur l'ancien compte mis en cache.
+        queryParams: { prompt: "select_account" },
       },
     });
 
-    if (error) {
-      gaLog("oauth:ERROR", error.message);
-      return { success: false, error: error.message };
-    }
-    if (!data?.url) {
-      gaLog("oauth:ERROR no url returned");
-      return { success: false, error: "No OAuth URL returned" };
-    }
+    if (error) return { success: false, error: error.message };
+    if (!data?.url) return { success: false, error: "No OAuth URL returned" };
 
-    gaLog("browser:open (la connexion Google s'ouvre, suite via deep link)");
     await Browser.open({ url: data.url });
     return { success: true, pending: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    gaLog("flow:error", message);
     console.error("Google browser sign-in error:", message);
     return { success: false, error: message };
   }
 }
 
 /**
- * Déconnexion du SDK Google natif. Best-effort, ne lève jamais.
- * À appeler au LOGOUT de l'app (event Supabase SIGNED_OUT) afin que la prochaine
- * connexion reparte d'un état natif propre : le compte Google mis en cache est
- * effacé (⇒ le sélecteur de compte réapparaît) et on évite la race stale-session
- * qui cassait par intermittence la re-connexion juste après une déconnexion.
- */
-export async function signOutGoogleNative(): Promise<void> {
-  if (!isNativePlatform()) return;
-  try {
-    const { GoogleAuth } = await getGoogleAuth();
-    await GoogleAuth.signOut();
-    console.log("Google native sign-out successful");
-  } catch (e) {
-    console.warn("Google native signOut non-fatal error:", e);
-  }
-}
-
-/**
- * Perform OAuth sign-in - works on both web and native
- * Native: uses native SDKs (no browser opened)
- * Web: uses standard Supabase OAuth redirect
+ * Perform OAuth sign-in - works on both web and native.
+ * Native: Apple via ASAuthorizationController, Google via in-app browser (PKCE).
+ * Web: standard Supabase OAuth redirect.
  */
 export async function signInWithOAuth(
   provider: "google" | "apple",
