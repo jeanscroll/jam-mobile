@@ -27,7 +27,9 @@ import { createClient } from "@/utils/supabase/components";
 // on some pages, throwing "Cannot read properties of undefined (reading '$i18n')").
 // The widget is hidden via Crisp's runtime API rather than unmounted, so it
 // stays initialised and reappears cleanly on other routes.
-const CRISP_DISABLED_ROUTES = ["/parametres-abonnement"];
+// "/alertes" : le launcher Crisp (fixed, bottom-right) recouvre le bouton
+// « Paramètres » de la page et le rend non cliquable → on masque le widget ici.
+const CRISP_DISABLED_ROUTES = ["/parametres-abonnement", "/alertes"];
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -117,6 +119,17 @@ function MyApp({ Component, pageProps }: AppProps) {
     <PostHogProvider client={posthog}>
       <>
         <Head>
+          {/*
+            viewport-fit=cover : active env(safe-area-inset-*) pour gérer le
+            notch / Dynamic Island iOS (croix Crisp, contenus en bord d'écran).
+            On NE désactive PAS le zoom (pas de maximum-scale / user-scalable=no)
+            pour préserver l'accessibilité : l'auto-zoom iOS sur les champs est
+            neutralisé en garantissant font-size >= 16px sur les inputs (cf. globals.css).
+          */}
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+          />
           <link rel="manifest" href="/manifest.json" />
         </Head>
         <PostHogPageView />

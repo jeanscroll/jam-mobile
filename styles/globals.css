@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
+   iOS Safari/WebView zoome automatiquement au focus d'un champ dont la
+   font-size est < 16px, et sans maximum-scale (qu'on évite pour ne pas
+   casser l'accessibilité) le dézoom ne revient jamais (bug "temps de travail"
+   sur /alertes). On force donc 16px sur les champs UNIQUEMENT sur appareils
+   tactiles (l'app tourne en WebView Capacitor), pour ne pas impacter desktop. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .ant-picker-input > input,
+  .ant-input,
+  .ant-select-selection-search-input {
+    font-size: 16px !important;
+  }
+}
+
 /* Supprimer les paddings du modal de candidature */
 .Modal__scrollableContent__02GeH {
   padding-left: 0 !important;

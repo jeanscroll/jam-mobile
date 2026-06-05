@@ -21,10 +21,10 @@ export { default as ResetPasswordMeta } from "./authentication/ResetPassword/Res
 // Accordions
 //       Accordion
 export {
-	Accordion,
-	AccordionItem,
-	AccordionTrigger,
-	AccordionContent,
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
 } from "./accordions/Accordion/Accordion";
 export { default as AccordionMeta } from "./accordions/Accordion/Accordion.meta";
 export { default as AccordionItemMeta } from "./accordions/Accordion/AccordionItem.meta";
@@ -142,6 +142,9 @@ export { default as FileUploaderMeta } from "./others/FileUploader/FileUploader.
 //       Map
 export { default as Map } from "./others/Map/Map";
 export { default as MapMeta } from "./others/Map/Map.meta";
+//       ShareButton
+export { default as ShareButton } from "./others/ShareButton/ShareButton";
+export { default as ShareButtonMeta } from "./others/ShareButton/ShareButton.meta";
 //       ProgressBar
 export { default as ProgressBar } from "./others/ProgressBar/ProgressBar";
 export { default as ProgressBarMeta } from "./others/ProgressBar/ProgressBar.meta";
