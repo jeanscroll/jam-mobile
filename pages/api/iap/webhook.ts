@@ -140,23 +140,40 @@ export default async function handler(
       case "PRODUCT_CHANGE":
       case "UNCANCELLATION": {
         const stripeProductId = await resolveStripeProductId(event.product_id);
+
+        // product_id sert au gating de l'app (menu/espace). Écrire `null` ici
+        // (mapping Apple→stripe_products introuvable) laisse l'utilisateur dans
+        // un état "abonné sans plan" qui bloque l'accès. On n'écrit donc le
+        // champ QUE s'il est résolu, et on loggue clairement sinon — l'ancienne
+        // valeur (le cas échéant) n'est jamais écrasée par null.
+        const subscriptionPayload: Record<string, unknown> = {
+          user_id: userId,
+          status: "active",
+          iap_platform: "ios",
+          iap_app_user_id: event.original_app_user_id ?? userId,
+          iap_product_id: event.product_id,
+          iap_transaction_id:
+            event.original_transaction_id ?? event.transaction_id ?? null,
+          iap_expires_at: expiresAt,
+          iap_period_type: event.period_type?.toLowerCase() ?? "normal",
+        };
+
+        if (stripeProductId) {
+          subscriptionPayload.product_id = stripeProductId; // legacy column for app gating
+        } else {
+          console.error(
+            `[iap-webhook] Mapping stripe_products introuvable pour le produit Apple "${event.product_id}" ` +
+              `(nom interne: ${
+                SUBSCRIPTION_PRODUCT_NAME[event.product_id] ?? "INCONNU"
+              }). ` +
+              `product_id NON écrit pour ne pas casser le gating (user ${userId}). ` +
+              `→ Vérifier SUBSCRIPTION_PRODUCT_NAME et la table stripe_products.`
+          );
+        }
+
         await supabaseServer
           .from("stripe_info")
-          .upsert(
-            {
-              user_id: userId,
-              status: "active",
-              product_id: stripeProductId, // legacy column for app gating
-              iap_platform: "ios",
-              iap_app_user_id: event.original_app_user_id ?? userId,
-              iap_product_id: event.product_id,
-              iap_transaction_id:
-                event.original_transaction_id ?? event.transaction_id ?? null,
-              iap_expires_at: expiresAt,
-              iap_period_type: event.period_type?.toLowerCase() ?? "normal",
-            },
-            { onConflict: "user_id" }
-          );
+          .upsert(subscriptionPayload, { onConflict: "user_id" });
         break;
       }
 
@@ -189,16 +206,14 @@ export default async function handler(
           .eq("user_id", userId)
           .maybeSingle();
         const current = Number((row as any)?.[column] ?? 0);
-        await supabaseServer
-          .from("stripe_info")
-          .upsert(
-            {
-              user_id: userId,
-              [column]: current + 1,
-              iap_platform: "ios",
-            },
-            { onConflict: "user_id" }
-          );
+        await supabaseServer.from("stripe_info").upsert(
+          {
+            user_id: userId,
+            [column]: current + 1,
+            iap_platform: "ios",
+          },
+          { onConflict: "user_id" }
+        );
         break;
       }
 
