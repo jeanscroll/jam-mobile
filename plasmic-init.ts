@@ -1,6 +1,7 @@
 import * as PlasmicLibrary from "./plasmic-library/components"
 import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
 import { tokens } from "./styles/tokens-jam";
+import { toggleLike } from "./lib/jobs/toggleLike";
 
 import { 
   SupabaseProvider, SupabaseProviderMeta, SupabaseUserGlobalContext, SupabaseUserGlobalContextMeta,
@@ -35,6 +36,18 @@ function registerComponents(library: Record<string, any>) {
   }
 }
 registerComponents(PlasmicLibrary);
+
+// Code action favori : écriture directe Supabase (client authentifié), appelable
+// depuis une interaction Plasmic comme `$$.toggleLike(jobId, desiredState)`.
+PLASMIC.registerFunction(toggleLike, {
+  name: "toggleLike",
+  params: [
+    { name: "jobId", type: "string" },
+    { name: "desiredState", type: "boolean" },
+  ],
+  importPath: "./lib/jobs/toggleLike",
+  isDefaultExport: false,
+});
 
 // Supabase
 PLASMIC.registerGlobalContext(SupabaseUserGlobalContext, SupabaseUserGlobalContextMeta)
