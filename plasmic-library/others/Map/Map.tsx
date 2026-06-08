@@ -244,7 +244,14 @@ const Mapbox: React.FC<MapboxProps> = ({
         wrapper.appendChild(salaryBadge);
       }
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+      // `className: "isDynamicForTranslate"` → marqueur Weglot (sélecteur dynamique
+      // déjà configuré côté projet) : le popup est injecté par mapbox-gl hors du
+      // flux React, donc l'observer Weglot ne le voit pas par défaut. La classe sur
+      // le conteneur force Weglot à (re)traduire son contenu à l'ouverture.
+      const popup = new mapboxgl.Popup({
+        offset: 25,
+        className: "isDynamicForTranslate",
+      }).setHTML(`
          ${
            markerState === "applied"
              ? `

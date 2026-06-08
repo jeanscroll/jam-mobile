@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
 
 export default function WeglotScript() {
   useEffect(() => {
@@ -64,6 +65,11 @@ export default function WeglotScript() {
       }
     };
     document.head.appendChild(script);
+
+    // Pont de traduction dynamique : force la traduction du contenu rendu côté
+    // client (cards Supabase, navigations SPA) que l'observer interne de Weglot
+    // ne rattrape pas. S'auto-attend que window.Weglot.translate soit dispo.
+    startWeglotDynamicTranslation("fr");
   }, []);
 
   return null;
