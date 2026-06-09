@@ -22,6 +22,8 @@ import {
   isIAPAvailable,
 } from "@/lib/iap/revenuecat";
 import { createClient } from "@/utils/supabase/components";
+import { Capacitor } from "@capacitor/core";
+import { Keyboard } from "@capacitor/keyboard";
 
 // Routes where Crisp is hidden (its SDK conflicts with Weglot's i18n hooks
 // on some pages, throwing "Cannot read properties of undefined (reading '$i18n')").
@@ -40,6 +42,16 @@ function MyApp({ Component, pageProps }: AppProps) {
       "data-build",
       process.env.NODE_ENV as string
     );
+  }, []);
+
+  // iOS : afficher la barre d'accessoire du clavier (bouton « Terminé »).
+  // En WKWebView, Capacitor masque cette barre par défaut : l'utilisateur
+  // restait alors « bloqué » dans un champ, sans moyen de fermer le clavier
+  // pour atteindre le bouton « Candidater ». setAccessoryBarVisible est iOS-only
+  // (no-op/erreur ailleurs) → on garde le garde-fou getPlatform() === "ios".
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== "ios") return;
+    Keyboard.setAccessoryBarVisible({ isVisible: true }).catch(() => {});
   }, []);
 
   // Initialize OAuth deep link listener for native platforms

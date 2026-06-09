@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
 
 // Note: process.env ne fonctionne pas pour le config natif, on hardcode la clé
 const STRIPE_PUBLISHABLE_KEY =
@@ -13,6 +14,13 @@ const config: CapacitorConfig = {
     iosScheme: "capacitor",
   },
   plugins: {
+    Keyboard: {
+      // Redimensionne la WebView quand le clavier s'ouvre, pour que le contenu
+      // (et le bouton « Candidater ») reste accessible au-dessus du clavier.
+      // La barre « Terminé » iOS est activée à l'exécution via
+      // Keyboard.setAccessoryBarVisible (cf. pages/_app.tsx).
+      resize: KeyboardResize.Native,
+    },
     GoogleAuth: {
       scopes: ["profile", "email"],
       iosClientId:

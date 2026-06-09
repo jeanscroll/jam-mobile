@@ -12,6 +12,25 @@ declare global {
 
 const DEFAULT_DISABLED_ROUTES: string[] = [];
 
+// Le launcher Crisp est fixé à bottom:20px / right:24px et RECOUVRE le menu du
+// bas (barre de navigation) présent sur la plupart des pages authentifiées.
+// Impossible de corriger en CSS : la position vient de la feuille Crisp servie
+// en cross-origin avec !important + forte spécificité (.cc-1brb6 .cc-1yy0g …,
+// classes hashées). Seul un style inline !important sur l'élément l'emporte.
+// On remonte donc le launcher au-dessus du menu, en tenant compte du safe-area
+// iOS (home indicator). On ne cible QUE l'état minimisé ([data-maximized=
+// "false"]) pour ne pas décaler la fenêtre de chat ouverte.
+const CRISP_LAUNCHER_OFFSET = "calc(env(safe-area-inset-bottom, 0px) + 88px)";
+
+function applyCrispLauncherOffset() {
+  const launcher = document.querySelector<HTMLElement>(
+    '.crisp-client [data-maximized="false"]'
+  );
+  if (launcher && launcher.style.bottom !== CRISP_LAUNCHER_OFFSET) {
+    launcher.style.setProperty("bottom", CRISP_LAUNCHER_OFFSET, "important");
+  }
+}
+
 interface CrispChatProps {
   /**
    * Routes (Next.js pathname format, e.g. "/parametres-abonnement") on which
@@ -55,6 +74,23 @@ export default function CrispChat({
     if (typeof window === "undefined" || !window.$crisp) return;
     window.$crisp.push(["do", isDisabled ? "chat:hide" : "chat:show"]);
   }, [isDisabled]);
+
+  // Remonter le launcher Crisp au-dessus du menu du bas. Crisp (re)crée et
+  // bascule l'attribut data-maximized de son launcher en continu (ouverture/
+  // fermeture du chat, navigation), donc un MutationObserver ré-applique l'offset
+  // à chaque changement plutôt qu'une seule fois au montage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    applyCrispLauncherOffset();
+    const observer = new MutationObserver(applyCrispLauncherOffset);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-maximized"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   return null;
 }
