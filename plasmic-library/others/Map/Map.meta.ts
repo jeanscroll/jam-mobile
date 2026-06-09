@@ -25,6 +25,16 @@ const MapBoxMeta = {
 			defaultValue: true,
 			description: "Affiche ou non le logo de l'entreprise dans la popup",
 		},
+		locked: {
+			type: "boolean",
+			defaultValue: true,
+			description: "Bloque le recentrage automatique. Mettre à false via un clic card pour déplacer la carte, puis re-locker via onMoveEnd.",
+		},
+		onMoveEnd: {
+			type: "eventHandler",
+			description: "Déclenché quand l'animation flyTo est terminée — utiliser pour re-locker la carte (remettre locked=true).",
+			argTypes: [],
+		},
 	},
 	importPath: "./plasmic-library/others/Map/Map",
 };

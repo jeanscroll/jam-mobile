@@ -41,9 +41,10 @@ interface MapboxProps {
   zoom?: number;
   markers?: MarkerData[];
   className?: string;
-  // onPopupClick?: () => void;
   onPopupClick?: (markerData: MarkerData) => void;
   showLogoInPopup?: boolean;
+  locked?: boolean;
+  onMoveEnd?: () => void;
 }
 
 const Mapbox: React.FC<MapboxProps> = ({
@@ -55,6 +56,8 @@ const Mapbox: React.FC<MapboxProps> = ({
   className = "",
   onPopupClick,
   showLogoInPopup = true,
+  locked = true,
+  onMoveEnd,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -150,11 +153,16 @@ const Mapbox: React.FC<MapboxProps> = ({
   }, [accessToken, mapStyle, calculateMarkerSize]);
 
   // === 2. Recentrage si lat/lng changent ===
+  // Quand locked=true la carte ignore les changements de lat/lng (évite qu'un
+  // formulaire ou une variable Plasmic déplace la carte involontairement).
+  // locked passe à false uniquement via un clic card → flyTo → moveend → re-lock.
   useEffect(() => {
-    if (mapRef.current && mapLoaded) {
-      mapRef.current.flyTo({ center: [longitude, latitude], essential: true });
-    }
-  }, [latitude, longitude, mapLoaded]);
+    if (!mapRef.current || !mapLoaded || locked) return;
+    const map = mapRef.current;
+    const handleMoveEnd = () => { onMoveEnd?.(); };
+    map.once("moveend", handleMoveEnd);
+    map.flyTo({ center: [longitude, latitude], essential: true });
+  }, [latitude, longitude, mapLoaded, locked, onMoveEnd]);
 
   // === 3. Affichage des marqueurs ===
   useEffect(() => {

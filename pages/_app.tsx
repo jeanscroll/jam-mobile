@@ -44,6 +44,31 @@ function MyApp({ Component, pageProps }: AppProps) {
     );
   }, []);
 
+  // Plasmic en mode preview:true peut rejeter des promesses avec un 500 lors
+  // du refetch live des données Studio. Sans handler, Next.js affiche une page
+  // d'erreur blanche. On filtre silencieusement ces rejections Plasmic pour
+  // éviter le crash — elles sont bénignes (le contenu déjà rendu reste affiché).
+  useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      try {
+        const raw = event.reason?.message || String(event.reason || "");
+        const parsed = JSON.parse(raw);
+        // Erreurs Plasmic bénignes : 500 de l'API preview, pool Supabase saturé
+        // (__plasmicIgnoreError=true), etc. On les absorbe pour éviter le crash.
+        if (
+          parsed?.error?.message === "Internal Server Error" ||
+          parsed?.error?.__plasmicIgnoreError === true ||
+          parsed?.error?.message?.includes("EMAXCONN")
+        ) {
+          event.preventDefault();
+          return;
+        }
+      } catch {}
+    };
+    window.addEventListener("unhandledrejection", handler);
+    return () => window.removeEventListener("unhandledrejection", handler);
+  }, []);
+
   // iOS : afficher la barre d'accessoire du clavier (bouton « Terminé »).
   // En WKWebView, Capacitor masque cette barre par défaut : l'utilisateur
   // restait alors « bloqué » dans un champ, sans moyen de fermer le clavier
