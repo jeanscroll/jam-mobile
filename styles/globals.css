@@ -68,6 +68,16 @@ body #weglot_here,
   width: 70px !important;
 }
 
+/* Fix concatenation de mots entre spans wg-* adjacents (Plasmic splite les
+   headings en nœuds séparés, Weglot les traduit sans espace). CSS ::before
+   est immunisé contre les mutations DOM de Weglot (dynamic:true). Les espaces
+   HTML normaux se collapsent donc pas de double-espace si un espace existe déjà. */
+span[wg-2]::before,
+span[wg-3]::before,
+span[wg-4]::before {
+  content: ' ';
+}
+
 /* Classes Weglot par défaut */
 .wg-default,
 .wg-li,

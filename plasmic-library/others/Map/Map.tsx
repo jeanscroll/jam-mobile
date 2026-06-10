@@ -275,7 +275,7 @@ const Mapbox: React.FC<MapboxProps> = ({
            is_last_minute
              ? `
             <div class="state-job">
-               <img src="//idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_clock-countdown-fill.svg" alt="Countdown Icon" />
+               <img src="//idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_clock-countdown-fill.svg" alt="" />
                <span class="state-job-title">LAST MINUTE</span>
             </div>
          `
