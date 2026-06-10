@@ -1,7 +1,6 @@
 import React, { useRef, useImperativeHandle, forwardRef } from "react";
 import { cva, VariantProps } from "class-variance-authority";
 import cn from "classnames";
-import Image from 'next/image';
 
 interface JobCardProps extends VariantProps<typeof cardVariant> {
   state?: "default" | "liked" | "applied" | "new" | "lastMin";
@@ -141,7 +140,7 @@ const JobCard = forwardRef<JobCardActions, JobCardProps>(({
 
       {/* Logo */}
       <div className="mb-4">
-        <Image
+        <img
           src={logo && logo !== "" ? logo : "/favicon.ico"}
           alt={`${companyName} logo`}
           width={120}
@@ -157,12 +156,11 @@ const JobCard = forwardRef<JobCardActions, JobCardProps>(({
       <div className="flex items-center mb-4">
         <div className="flex items-center gap-1">
           {customIcons.mapPin && (
-            <Image
+            <img
               src={customIcons.mapPin}
               alt="Location"
               width={16}
               height={16}
-              className="text-gray-500"
             />
           )}
           <span className="text-gray-600 text-sm">{city} ({companyName})</span>
@@ -175,19 +173,19 @@ const JobCard = forwardRef<JobCardActions, JobCardProps>(({
         <div className="flex gap-2 flex-wrap">
           {domain && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={domain.icon} alt="Domain" width={14} height={14} />
+              <img src={domain.icon} alt="Domain" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{domain.text}</span>
             </div>
           )}
           {contractType && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={contractType.icon} alt="Contract type" width={14} height={14} />
+              <img src={contractType.icon} alt="Contract type" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{contractType.text}</span>
             </div>
           )}
           {availability && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={availability.icon} alt="Availability" width={14} height={14} />
+              <img src={availability.icon} alt="Availability" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{availability.text}</span>
             </div>
           )}
@@ -197,19 +195,19 @@ const JobCard = forwardRef<JobCardActions, JobCardProps>(({
         <div className="flex gap-2 flex-wrap">
           {workingTime && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={workingTime.icon} alt="Working time" width={14} height={14} />
+              <img src={workingTime.icon} alt="Working time" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{workingTime.text}</span>
             </div>
           )}
           {salary && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={salary.icon} alt="Salary" width={14} height={14} />
+              <img src={salary.icon} alt="Salary" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{salary.text}</span>
             </div>
           )}
           {workMode && (
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full flex-shrink-0">
-              <Image src={workMode.icon} alt="Work mode" width={14} height={14} />
+              <img src={workMode.icon} alt="Work mode" width={14} height={14} />
               <span className="text-xs font-medium text-gray-900">{workMode.text}</span>
             </div>
           )}
