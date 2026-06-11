@@ -104,3 +104,38 @@ html[data-build="production"] [class*="weglot"] {
   left: 20px !important;
   width: 70px !important;
 }
+/* ========== WEGLOT VISUAL STYLE — dark/lime theme ========== */
+.wg-default {
+  background: rgba(15, 15, 15, 0.85) !important;
+  border: 1.5px solid #BBFE68 !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  padding: 4px 10px !important;
+  width: auto !important;
+  min-width: 64px !important;
+}
+
+.wg-default .wgcurrent a,
+.wg-default .wgcurrent span {
+  color: #BBFE68 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+.wg-default ul {
+  background: rgba(15, 15, 15, 0.95) !important;
+  border: 1.5px solid #BBFE68 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+.wg-default .wg-li a {
+  color: #fff !important;
+  font-size: 13px !important;
+}
+
+.wg-default .wg-li:hover a {
+  color: #BBFE68 !important;
+  background: rgba(187, 254, 104, 0.1) !important;
+}
