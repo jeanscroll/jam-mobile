@@ -20,14 +20,22 @@ const DEFAULT_DISABLED_ROUTES: string[] = [];
 // On remonte donc le launcher au-dessus du menu, en tenant compte du safe-area
 // iOS (home indicator). On ne cible QUE l'état minimisé ([data-maximized=
 // "false"]) pour ne pas décaler la fenêtre de chat ouverte.
-const CRISP_LAUNCHER_OFFSET = "calc(env(safe-area-inset-bottom, 0px) + 88px)";
+// Sur la / (homepage), Crisp est aligné avec le sélecteur Weglot (bottom: 30px).
+// Sur les autres pages, on monte au-dessus de la barre de navigation du bas (88px).
+const CRISP_LAUNCHER_OFFSET_DEFAULT = "calc(env(safe-area-inset-bottom, 0px) + 88px)";
+const CRISP_LAUNCHER_OFFSET_HOME = "30px";
 
-function applyCrispLauncherOffset() {
+function getCrispLauncherOffset(path: string): string {
+  return path === "/" ? CRISP_LAUNCHER_OFFSET_HOME : CRISP_LAUNCHER_OFFSET_DEFAULT;
+}
+
+function applyCrispLauncherOffset(path: string) {
+  const offset = getCrispLauncherOffset(path);
   const launcher = document.querySelector<HTMLElement>(
     '.crisp-client [data-maximized="false"]'
   );
-  if (launcher && launcher.style.bottom !== CRISP_LAUNCHER_OFFSET) {
-    launcher.style.setProperty("bottom", CRISP_LAUNCHER_OFFSET, "important");
+  if (launcher && launcher.style.bottom !== offset) {
+    launcher.style.setProperty("bottom", offset, "important");
   }
 }
 
@@ -81,8 +89,8 @@ export default function CrispChat({
   // à chaque changement plutôt qu'une seule fois au montage.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    applyCrispLauncherOffset();
-    const observer = new MutationObserver(applyCrispLauncherOffset);
+    applyCrispLauncherOffset(currentPath);
+    const observer = new MutationObserver(() => applyCrispLauncherOffset(currentPath));
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -90,7 +98,7 @@ export default function CrispChat({
       attributeFilter: ["data-maximized"],
     });
     return () => observer.disconnect();
-  }, []);
+  }, [currentPath]);
 
   return null;
 }
