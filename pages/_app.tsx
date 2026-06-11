@@ -11,8 +11,7 @@ import "@/styles/globals.css";
 import "@/styles/fonts.css";
 import CrispChat from "@/components/crispChat/CrispChat";
 import WeglotScript from "@/components/weglot/WeglotScript";
-import dynamic from "next/dynamic";
-const DebugOverlay = dynamic(() => import("@/components/debugOverlay/DebugOverlay"), { ssr: false });
+import DebugOverlay from "@/components/debugOverlay/DebugOverlay";
 import {
   initializeOAuthListener,
   isNativePlatform,
