@@ -81,6 +81,8 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
       // sélecteur de langue Weglot / pays : ne pas traduire
       if (/weglot|country-selector/i.test(cls)) return true;
       if (el.isContentEditable) return true;
+      // Spans gérés par Weglot (wg-N) : laisser le CSS ::before gérer l'espacement
+      if ([...el.attributes].some((a) => /^wg-\d+$/.test(a.name))) return true;
       el = el.parentElement;
     }
     return false;
@@ -100,7 +102,15 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
     return nodes;
   };
 
-  const setText = (node: Text, src: string, value: string) => {
+  const setText = (node: Text, src: string, translated: string) => {
+    // L'API Weglot renvoie une traduction trimmée. On réattache les espaces
+    // (début/fin) du texte source autour de la traduction, sinon des nœuds/spans
+    // adjacents se collent ("aussi " + "simple" → "sosimple"). Indispensable car
+    // Plasmic splite les phrases en plusieurs spans (texte + span lime stylé).
+    const leading = src.match(/^\s*/)?.[0] ?? "";
+    const trailing = src.match(/\s*$/)?.[0] ?? "";
+    const value = leading + translated + trailing;
+    if (node.nodeValue === value) return;
     applying = true;
     originalText.set(node, src);
     node.nodeValue = value;
@@ -138,7 +148,7 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
       const key = lang + "::" + src.trim();
       const cached = cache.get(key);
       if (cached != null) {
-        if (node.nodeValue !== cached) setText(node, src, cached);
+        setText(node, src, cached);
       } else {
         pending.push({ node, src });
       }
@@ -159,12 +169,7 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
       for (const { node, src } of pending) {
         if (!node.isConnected) continue;
         const tr = cache.get(lang + "::" + src.trim());
-        if (tr != null) {
-          const leading = src.match(/^\s*/)?.[0] ?? "";
-          const trailing = src.match(/\s*$/)?.[0] ?? "";
-          const withSpaces = leading + tr + trailing;
-          if (node.nodeValue !== withSpaces) setText(node, src, withSpaces);
-        }
+        if (tr != null) setText(node, src, tr);
       }
     });
   };
