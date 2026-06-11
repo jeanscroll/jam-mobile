@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/router";
 import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
 
 const WEGLOT_STYLE = `
@@ -57,6 +58,16 @@ function injectWeglotStyle() {
 }
 
 export default function WeglotScript() {
+  const router = useRouter();
+
+  // Réappliquer la position à chaque navigation SPA — Weglot recrée son switcher
+  // avec sa position par défaut (haut-droite) après un changement de route.
+  useEffect(() => {
+    const reapply = () => setTimeout(injectWeglotStyle, 100);
+    router.events.on("routeChangeComplete", reapply);
+    return () => router.events.off("routeChangeComplete", reapply);
+  }, [router.events]);
+
   useEffect(() => {
     // Éviter le double chargement
     if (document.querySelector('script[src*="weglot"]')) {
