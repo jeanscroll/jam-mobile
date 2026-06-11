@@ -24,6 +24,11 @@ on:
         required: false
         default: false
         type: boolean
+      debug_overlay:
+        description: 'Activer l overlay de debug visuel (console.error à l écran)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -65,6 +70,7 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           NEXT_PUBLIC_REVENUECAT_IOS_KEY: ${{ secrets.NEXT_PUBLIC_REVENUECAT_IOS_KEY }}
+          NEXT_PUBLIC_DEBUG_OVERLAY: ${{ inputs.debug_overlay }}
         run: npm run build:capacitor
 
       # NB : le plugin Google (podspec GoogleSignIn ~> 7.1 + rewrite de Plugin.swift
