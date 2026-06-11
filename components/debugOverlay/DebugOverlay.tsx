@@ -94,6 +94,15 @@ export default function DebugOverlay() {
         <button onClick={() => setMinimized((m) => !m)} style={{ background: "none", border: "none", color: "#fff", fontSize: 14, cursor: "pointer", padding: "0 4px" }}>
           {minimized ? "▲" : "▼"}
         </button>
+        <button
+          onClick={() => {
+            const text = entries.map((e) => `[${e.timestamp}][${e.type}] ${e.message}`).join("\n");
+            navigator.clipboard?.writeText(text).catch(() => {});
+          }}
+          style={{ background: "none", border: "none", color: "#BBFE68", fontSize: 11, cursor: "pointer", padding: "0 4px" }}
+        >
+          copy
+        </button>
         <button onClick={() => setEntries([])} style={{ background: "none", border: "none", color: "#aaa", fontSize: 11, cursor: "pointer", padding: "0 4px" }}>
           clear
         </button>
