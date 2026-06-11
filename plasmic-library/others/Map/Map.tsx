@@ -264,7 +264,7 @@ const Mapbox: React.FC<MapboxProps> = ({
            markerState === "applied"
              ? `
             <div class="applied-job">
-               <img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//Vector.svg"/>
+               <img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/Vector.svg"/>
                <span class="state-job-title">POSTULÉ</span>
             </div>
          `
@@ -294,19 +294,19 @@ const Mapbox: React.FC<MapboxProps> = ({
       }${company_name ? `, ${company_name}` : ""}</p>
          </div>
          <div class="popup-info">
-            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//ph_briefcase.svg"> ${
+            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_briefcase.svg"> ${
               sector_activity || "N/A"
             }</div>
-            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//ph_file-text.svg"> ${
+            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_file-text.svg"> ${
               contract_type || "N/A"
             }</div>
-            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//ph_clock.svg"> ${
+            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_clock.svg"> ${
               working_time || "N/A"
             }</div>
-            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//ph_coins-light.svg"> ${
+            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_coins-light.svg"> ${
               salary || "N/A"
             }</div>
-            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img//ph_office-chair.svg"> ${
+            <div><img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_office-chair.svg"> ${
               work_mode || "N/A"
             }</div>
          </div>
