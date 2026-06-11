@@ -31,11 +31,29 @@ const WEGLOT_STYLE = `
 `;
 
 function injectWeglotStyle() {
-  if (document.getElementById("jam-weglot-override")) return;
-  const styleEl = document.createElement("style");
-  styleEl.id = "jam-weglot-override";
-  styleEl.textContent = WEGLOT_STYLE;
-  document.head.appendChild(styleEl);
+  // <style> injecté après le CSS Weglot CDN — gagne le cascade
+  if (!document.getElementById("jam-weglot-override")) {
+    const styleEl = document.createElement("style");
+    styleEl.id = "jam-weglot-override";
+    styleEl.textContent = WEGLOT_STYLE;
+    document.head.appendChild(styleEl);
+  }
+
+  // Positionnement inline sur l'aside — nécessaire en WebView iOS où position:fixed
+  // CSS seul ne suffit pas (Weglot écrase avec sa position par défaut).
+  const aside = document.querySelector<HTMLElement>(
+    "aside.weglot_switcher, aside.country-selector"
+  );
+  if (aside) {
+    aside.style.setProperty("position", "fixed", "important");
+    aside.style.setProperty("bottom", "30px", "important");
+    aside.style.setProperty("left", "20px", "important");
+    aside.style.setProperty("top", "unset", "important");
+    aside.style.setProperty("right", "unset", "important");
+    aside.style.setProperty("z-index", "99999", "important");
+    aside.style.setProperty("width", "auto", "important");
+    aside.style.setProperty("min-width", "64px", "important");
+  }
 }
 
 export default function WeglotScript() {

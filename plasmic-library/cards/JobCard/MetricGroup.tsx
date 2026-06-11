@@ -1,6 +1,5 @@
 import * as React from "react";
 import { JobMetric } from "./types";
-import Image from 'next/image';
 
 interface MetricGroupProps {
   metrics: JobMetric[];
@@ -19,7 +18,7 @@ export function MetricGroup({ metrics }: MetricGroupProps) {
             className="flex gap-0.5 items-center self-stretch my-auto w-6 min-h-[13px]"
             role="listitem"
           >
-            <Image
+            <img
               src={metric.icon}
               alt={metric.label}
               width={10}

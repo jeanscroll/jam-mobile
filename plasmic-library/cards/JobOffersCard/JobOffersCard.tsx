@@ -1,7 +1,7 @@
-import React, { useRef, useImperativeHandle, forwardRef } from "react";
+﻿import React, { useRef, useImperativeHandle, forwardRef } from "react";
 import { cva, VariantProps } from "class-variance-authority";
 import cn from "classnames";
-import Image from 'next/image';
+
 
 interface JobOffersCardProps extends VariantProps<typeof cardVariant> {
   status?: "default" | "boosted" | "archived" | "new";
@@ -154,7 +154,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
         onClick={handleCardClick}
         className="w-full h-full"
       >
-        {/* En-tête avec titre et status */}
+        {/* En-tÃªte avec titre et status */}
         <div className="flex justify-between items-start mb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             <div className="flex items-center mt-1 text-sm text-gray-600">
               <div className="flex items-center">
                 {customIcons.location ? (
-                  <Image
+                  <img
                     src={customIcons.location}
                     alt="Location"
                     width={16}
@@ -185,7 +185,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
               </div>
               {publishDate && (
                 <div className="ml-4 text-sm text-gray-500">
-                  Publié le {publishDate}
+                  PubliÃ© le {publishDate}
                 </div>
               )}
             </div>
@@ -201,7 +201,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
                 className="text-red-500 hover:text-red-700"
               >
                 {customIcons.delete ? (
-                  <Image
+                  <img
                     src={customIcons.delete}
                     alt="Delete"
                     width={20}
@@ -222,7 +222,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
                 className="text-gray-500 hover:text-gray-700"
               >
                 {customIcons.edit ? (
-                  <Image
+                  <img
                     src={customIcons.edit}
                     alt="Edit"
                     width={20}
@@ -254,20 +254,20 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
           </div>
         </div>
 
-        {/* Slot personnalisable pour l'en-tête */}
+        {/* Slot personnalisable pour l'en-tÃªte */}
         {headerSlot && (
           <div className="mb-4" onClick={(e) => e.stopPropagation()}>
             {headerSlot}
           </div>
         )}
 
-        {/* Métriques */}
+        {/* MÃ©triques */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-wrap gap-3">
             {contractDuration && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {contractDuration.icon ? (
-                  <Image src={contractDuration.icon} alt="Duration" width={16} height={16} />
+                  <img src={contractDuration.icon} alt="Duration" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -280,7 +280,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             {contractType && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {contractType.icon ? (
-                  <Image src={contractType.icon} alt="Contract type" width={16} height={16} />
+                  <img src={contractType.icon} alt="Contract type" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -293,7 +293,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             {immediateStart && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {immediateStart.icon ? (
-                  <Image src={immediateStart.icon} alt="Immediate" width={16} height={16} />
+                  <img src={immediateStart.icon} alt="Immediate" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -308,7 +308,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             {workingHours && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {workingHours.icon ? (
-                  <Image src={workingHours.icon} alt="Working hours" width={16} height={16} />
+                  <img src={workingHours.icon} alt="Working hours" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -321,7 +321,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             {salary && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {salary.icon ? (
-                  <Image src={salary.icon} alt="Salary" width={16} height={16} />
+                  <img src={salary.icon} alt="Salary" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -334,7 +334,7 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
             {remotePercentage && (
               <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full">
                 {remotePercentage.icon ? (
-                  <Image src={remotePercentage.icon} alt="Remote" width={16} height={16} />
+                  <img src={remotePercentage.icon} alt="Remote" width={16} height={16} />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -366,3 +366,4 @@ const JobOffersCard = forwardRef<JobOffersCardActions, JobOffersCardProps>(({
 
 JobOffersCard.displayName = "JobOffersCard";
 export default JobOffersCard; 
+
