@@ -3,6 +3,41 @@
 import { useEffect } from "react";
 import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
 
+const WEGLOT_STYLE = `
+  aside.weglot_switcher,
+  aside.country-selector {
+    background: rgba(15, 15, 15, 0.85) !important;
+    border: 1.5px solid #BBFE68 !important;
+    border-radius: 20px !important;
+    padding: 4px 10px !important;
+    width: auto !important;
+    min-width: 64px !important;
+  }
+  .wgcurrent {
+    background: transparent !important;
+    border: none !important;
+  }
+  .wg-default ul {
+    background: rgba(15, 15, 15, 0.95) !important;
+    border: 1.5px solid #BBFE68 !important;
+    border-radius: 12px !important;
+  }
+  .wg-default .wg-li a {
+    color: #fff !important;
+  }
+  .wg-default .wg-li:hover a {
+    color: #BBFE68 !important;
+  }
+`;
+
+function injectWeglotStyle() {
+  if (document.getElementById("jam-weglot-override")) return;
+  const styleEl = document.createElement("style");
+  styleEl.id = "jam-weglot-override";
+  styleEl.textContent = WEGLOT_STYLE;
+  document.head.appendChild(styleEl);
+}
+
 export default function WeglotScript() {
   useEffect(() => {
     // Éviter le double chargement
@@ -30,38 +65,11 @@ export default function WeglotScript() {
           dynamic: true,
         });
 
-        // Forcer l'application des styles après initialisation
-        setTimeout(() => {
-          const applyStyles = () => {
-            const selectors = [
-              ".weglot_switcher",
-              ".weglot-dropdown",
-              '[class*="weglot"]',
-              "#weglot_here",
-            ];
-
-            selectors.forEach((selector) => {
-              const elements = document.querySelectorAll(selector);
-              elements.forEach((element) => {
-                if (element) {
-                  (element as HTMLElement).style.cssText += `
-                    position: fixed !important;
-                    bottom: 30px !important;
-                    left: 20px !important;
-                    width: 70px !important;
-                    z-index: 99999 !important;
-                  `;
-                }
-              });
-            });
-          };
-
-          applyStyles();
-          // Réappliquer plusieurs fois pour s'assurer que ça tient
-          setTimeout(applyStyles, 500);
-          setTimeout(applyStyles, 1000);
-          setTimeout(applyStyles, 2000);
-        }, 100);
+        // switchersReady fire après que Weglot a créé le DOM du switcher ET
+        // injecté son propre CSS CDN. Injecter notre <style> ici garantit qu'il
+        // vient après dans le <head> et gagne le cascade.
+        // @ts-expect-error Weglot est un global injecté par le script CDN (non typé)
+        Weglot.on("switchersReady", injectWeglotStyle);
       }
     };
     document.head.appendChild(script);

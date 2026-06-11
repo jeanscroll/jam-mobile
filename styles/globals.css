@@ -35,16 +35,17 @@ body {
   padding-right: 0 !important;
 }
 
-/* Cibler plus spécifiquement si besoin */
 .plasmic_default__all.plasmic_default__div.Modal__scrollableContent__02GeH {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
 
 
-/* ========== WEGLOT STYLES PRODUCTION-SAFE ========== */
+/* ========== WEGLOT — POSITIONNEMENT ========== */
+/* Position fixe bas-gauche. Le style visuel (dark/lime) est injecté via JS
+   dans WeglotScript.tsx (événement switchersReady) pour garantir qu'il vient
+   après le CSS CDN Weglot dans le cascade. */
 
-/* Sélecteurs ultra-spécifiques pour production */
 html body .weglot_switcher,
 html body .weglot-dropdown,
 html body [class*="weglot"],
@@ -60,14 +61,12 @@ body #weglot_here,
   position: fixed !important;
   bottom: 30px !important;
   left: 20px !important;
-  width: 70px !important;
   z-index: 99999 !important;
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-/* Forcer même avec les attributs style inline */
 .weglot_switcher[style],
 .weglot-dropdown[style],
 [class*="weglot"][style],
@@ -75,24 +74,6 @@ body #weglot_here,
   position: fixed !important;
   bottom: 30px !important;
   left: 20px !important;
-  width: 70px !important;
-}
-
-/* Fix concatenation de mots entre spans wg-* adjacents (Plasmic splite les
-   headings en nœuds séparés, Weglot les traduit sans espace). CSS ::before
-   est immunisé contre les mutations DOM de Weglot (dynamic:true). Les espaces
-   HTML normaux se collapsent donc pas de double-espace si un espace existe déjà. */
-span[wg-2]::before,
-span[wg-3]::before,
-span[wg-4]::before {
-  content: ' ';
-}
-
-/* Classes Weglot par défaut */
-.wg-default,
-.wg-li,
-.wgcurrent {
-  position: relative !important;
 }
 
 /* Surcharge pour les builds de production */
@@ -102,40 +83,20 @@ html[data-build="production"] [class*="weglot"] {
   position: fixed !important;
   bottom: 30px !important;
   left: 20px !important;
-  width: 70px !important;
-}
-/* ========== WEGLOT VISUAL STYLE � dark/lime theme ========== */
-.wg-default {
-  background: rgba(15, 15, 15, 0.85) !important;
-  border: 1.5px solid #BBFE68 !important;
-  border-radius: 20px !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  padding: 4px 10px !important;
-  width: auto !important;
-  min-width: 64px !important;
 }
 
-.wg-default .wgcurrent a,
-.wg-default .wgcurrent span {
-  color: #BBFE68 !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
+/* Fix concatenation de mots entre spans wg-* adjacents (Plasmic splite les
+   headings en noeuds séparés, Weglot les traduit sans espace). CSS ::before
+   est immunisé contre les mutations DOM de Weglot (dynamic:true). */
+span[wg-2]::before,
+span[wg-3]::before,
+span[wg-4]::before {
+  content: ' ';
 }
 
-.wg-default ul {
-  background: rgba(15, 15, 15, 0.95) !important;
-  border: 1.5px solid #BBFE68 !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
-.wg-default .wg-li a {
-  color: #fff !important;
-  font-size: 13px !important;
-}
-
-.wg-default .wg-li:hover a {
-  color: #BBFE68 !important;
-  background: rgba(187, 254, 104, 0.1) !important;
+/* Éviter que position:fixed des parents casse le layout interne du switcher */
+.wg-default,
+.wg-li,
+.wgcurrent {
+  position: relative !important;
 }
