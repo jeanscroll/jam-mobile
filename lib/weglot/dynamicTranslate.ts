@@ -159,7 +159,12 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
       for (const { node, src } of pending) {
         if (!node.isConnected) continue;
         const tr = cache.get(lang + "::" + src.trim());
-        if (tr != null && node.nodeValue !== tr) setText(node, src, tr);
+        if (tr != null) {
+          const leading = src.match(/^\s*/)?.[0] ?? "";
+          const trailing = src.match(/\s*$/)?.[0] ?? "";
+          const withSpaces = leading + tr + trailing;
+          if (node.nodeValue !== withSpaces) setText(node, src, withSpaces);
+        }
       }
     });
   };
