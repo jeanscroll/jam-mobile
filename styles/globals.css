@@ -90,7 +90,13 @@ html[data-build="production"] [class*="weglot"] {
    est immunisé contre les mutations DOM de Weglot (dynamic:true). */
 span[wg-2]::before,
 span[wg-3]::before,
-span[wg-4]::before {
+span[wg-4]::before,
+span[wg-5]::before,
+span[wg-6]::before,
+span[wg-7]::before,
+span[wg-8]::before,
+span[wg-9]::before,
+span[wg-10]::before {
   content: ' ';
 }
 
