@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe areas iOS (notch / Dynamic Island / home indicator).
+   viewport-fit=cover (dans _app.tsx) étend le viewport sous la status bar —
+   sans ces paddings le contenu passerait derrière. */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
    iOS Safari/WebView zoome automatiquement au focus d'un champ dont la
    font-size est < 16px, et sans maximum-scale (qu'on évite pour ne pas
