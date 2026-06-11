@@ -275,7 +275,7 @@ const Mapbox: React.FC<MapboxProps> = ({
            is_last_minute
              ? `
             <div class="state-job">
-               <img src="//idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_clock-countdown-fill.svg" alt="" />
+               <img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_clock-countdown-fill.svg" alt="" />
                <span class="state-job-title">LAST MINUTE</span>
             </div>
          `
@@ -288,7 +288,7 @@ const Mapbox: React.FC<MapboxProps> = ({
          }
          <h3>${title || "Titre non défini"}</h3>
          <div class="location">
-            <img src="//idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_map-pin.svg" class="w-4 h-4" />
+            <img src="https://idwomihieftgogbgivic.supabase.co/storage/v1/object/public/img/ph_map-pin.svg" class="w-4 h-4" />
             <p>${location || "Non définie"}${
         postal_code ? ` (${postal_code.slice(0, 2)})` : ""
       }${company_name ? `, ${company_name}` : ""}</p>
