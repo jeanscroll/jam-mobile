@@ -31,6 +31,20 @@ const WEGLOT_STYLE = `
   }
 `;
 
+let _applyingWeglotStyle = false;
+let _weglotObserver: MutationObserver | null = null;
+
+function applyWeglotPosition(aside: HTMLElement) {
+  aside.style.setProperty("position", "fixed", "important");
+  aside.style.setProperty("bottom", "30px", "important");
+  aside.style.setProperty("left", "20px", "important");
+  aside.style.setProperty("top", "unset", "important");
+  aside.style.setProperty("right", "unset", "important");
+  aside.style.setProperty("z-index", "99999", "important");
+  aside.style.setProperty("width", "auto", "important");
+  aside.style.setProperty("min-width", "64px", "important");
+}
+
 function injectWeglotStyle() {
   // <style> injecté après le CSS Weglot CDN — gagne le cascade
   if (!document.getElementById("jam-weglot-override")) {
@@ -40,20 +54,23 @@ function injectWeglotStyle() {
     document.head.appendChild(styleEl);
   }
 
-  // Positionnement inline sur l'aside — nécessaire en WebView iOS où position:fixed
-  // CSS seul ne suffit pas (Weglot écrase avec sa position par défaut).
   const aside = document.querySelector<HTMLElement>(
     "aside.weglot_switcher, aside.country-selector"
   );
-  if (aside) {
-    aside.style.setProperty("position", "fixed", "important");
-    aside.style.setProperty("bottom", "30px", "important");
-    aside.style.setProperty("left", "20px", "important");
-    aside.style.setProperty("top", "unset", "important");
-    aside.style.setProperty("right", "unset", "important");
-    aside.style.setProperty("z-index", "99999", "important");
-    aside.style.setProperty("width", "auto", "important");
-    aside.style.setProperty("min-width", "64px", "important");
+  if (!aside) return;
+
+  applyWeglotPosition(aside);
+
+  // MutationObserver avec garde anti-boucle : détecte quand Weglot réécrase
+  // son inline style et le remet immédiatement à la bonne valeur.
+  if (!_weglotObserver) {
+    _weglotObserver = new MutationObserver(() => {
+      if (_applyingWeglotStyle) return;
+      _applyingWeglotStyle = true;
+      applyWeglotPosition(aside);
+      _applyingWeglotStyle = false;
+    });
+    _weglotObserver.observe(aside, { attributes: true, attributeFilter: ["style"] });
   }
 }
 
