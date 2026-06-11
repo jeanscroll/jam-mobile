@@ -83,6 +83,16 @@ jobs:
       - name: Sync Capacitor iOS
         run: npx cap sync ios
 
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/App/Pods
+            ~/.cocoapods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/App/Podfile') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
       - name: Install CocoaPods
         working-directory: ios/App
         run: |
