@@ -270,7 +270,7 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
   return (
     <div
       className={className}
-      style={{ position: "relative", display: "inline-block" }}
+      style={{ position: "relative" }}
     >
       <button
         ref={buttonRef}
@@ -297,13 +297,12 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
           display: "flex",
           alignItems: "center",
           gap: 8,
-          padding: "8px 12px",
-          borderRadius: 8,
-          border: "1px solid #e2e2e2",
-          background: "#fff",
-          fontSize: 14,
-          cursor: "pointer",
           whiteSpace: "nowrap",
+          background: "none",
+          border: "none",
+          padding: 0,
+          font: "inherit",
+          cursor: "pointer",
         }}
       >
         {FLAG_SVG_URLS[selected] && (
@@ -337,15 +336,10 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
             left: 0,
             zIndex: 1000,
             width: "max-content",
-            minWidth: "auto",
+            maxWidth: "90vw",
             maxHeight: 240,
             overflowY: "auto",
-            maxWidth: "90vw",
             overflowX: "auto",
-            background: "#fff",
-            border: "1px solid #e2e2e2",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
           }}
         >
           {normalizedOptions.map((opt) => {
@@ -365,9 +359,6 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  padding: "8px 12px",
-                  fontSize: 14,
-                  background: isActive ? "#f5f5f5" : "#fff",
                   cursor: "pointer",
                 }}
               >
