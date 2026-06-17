@@ -21,6 +21,45 @@ body {
   background-color: #000000;
 }
 
+/* Dégradé de transition safe-area → contenu.
+   Le hero est une photo opaque dont le bord franc crée une démarcation nette
+   avec les bandes noires (notch / home indicator). On superpose un dégradé
+   noir → transparent ancré sur chaque bord du viewport : la zone safe-area
+   reste 100% noire (stop à env(safe-area-inset-*)), puis on fond vers la
+   transparence sur ~44px à l'intérieur de la photo → plus de ligne visible.
+   pointer-events:none → n'intercepte aucun tap. z-index sous Weglot (99999). */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 9990;
+}
+
+body::before {
+  top: 0;
+  height: calc(env(safe-area-inset-top) + 44px);
+  background: linear-gradient(
+    to bottom,
+    #000000 0,
+    #000000 env(safe-area-inset-top),
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+body::after {
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom) + 44px);
+  background: linear-gradient(
+    to top,
+    #000000 0,
+    #000000 env(safe-area-inset-bottom),
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
    iOS Safari/WebView zoome automatiquement au focus d'un champ dont la
    font-size est < 16px, et sans maximum-scale (qu'on évite pour ne pas
