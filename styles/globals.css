@@ -12,6 +12,15 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Les paddings safe-area ci-dessus laissent apparaître le fond du body dans les
+   zones notch / home indicator. Sans couleur de fond, ces zones tombaient sur le
+   blanc par défaut (bandes blanches en haut/bas). On force le fond noir de l'app
+   pour que ces bandes suivent le thème sombre. */
+html,
+body {
+  background-color: #000000;
+}
+
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
    iOS Safari/WebView zoome automatiquement au focus d'un champ dont la
    font-size est < 16px, et sans maximum-scale (qu'on évite pour ne pas
