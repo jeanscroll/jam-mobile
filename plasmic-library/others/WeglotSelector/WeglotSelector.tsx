@@ -268,10 +268,51 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
     (dropdownDirection === "auto" ? autoOpenUp : false);
 
   return (
-    <div
-      className={className}
-      style={{ position: "relative" }}
-    >
+    <div className={className} style={{ position: "relative" }}>
+      {/* Styles du dropdown : sans conteneur stylé, les drapeaux du menu
+          s'affichaient nus, minuscules et collés (« 2 drapeaux superposés »).
+          On donne au menu un vrai fond sombre/bordure lime, du padding et un
+          espacement entre les items. */}
+      <style>{`
+        .jam-wg-menu {
+          background: rgba(15, 15, 15, 0.95);
+          border: 1.5px solid #BBFE68;
+          border-radius: 12px;
+          padding: 6px;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .jam-wg-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          color: #fff;
+          font-size: 14px;
+          line-height: 1;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .jam-wg-item:hover,
+        .jam-wg-item:focus-visible {
+          background: rgba(187, 254, 104, 0.15);
+          outline: none;
+        }
+        .jam-wg-item[aria-selected="true"] {
+          background: rgba(187, 254, 104, 0.22);
+        }
+        .jam-wg-flag {
+          width: 20px;
+          height: 14px;
+          object-fit: cover;
+          border-radius: 2px;
+          flex: 0 0 auto;
+        }
+      `}</style>
       <button
         ref={buttonRef}
         aria-haspopup="listbox"
@@ -310,12 +351,7 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
             src={FLAG_SVG_URLS[selected]!}
             alt=""
             aria-hidden
-            style={{
-              width: 16,
-              height: 12,
-              objectFit: "cover",
-              borderRadius: 2,
-            }}
+            className="jam-wg-flag"
           />
         )}
         {getLabel(selected) ? <span>{getLabel(selected)}</span> : null}
@@ -327,6 +363,7 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
         <div
           ref={menuRef}
           role="listbox"
+          className="jam-wg-menu"
           aria-activedescendant={`weglot-opt-${selected}`}
           style={{
             position: "absolute",
@@ -335,11 +372,11 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
               : { top: "100%", marginTop: 6 }),
             left: 0,
             zIndex: 1000,
+            minWidth: 120,
             width: "max-content",
             maxWidth: "90vw",
             maxHeight: 240,
             overflowY: "auto",
-            overflowX: "auto",
           }}
         >
           {normalizedOptions.map((opt) => {
@@ -349,30 +386,20 @@ const WeglotSelector: React.FC<WeglotSelectorProps> = ({
                 id={`weglot-opt-${opt.code}`}
                 key={opt.code}
                 role="option"
+                className="jam-wg-item"
                 aria-selected={isActive}
                 onClick={() => switchLanguage(opt.code)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") switchLanguage(opt.code);
                 }}
                 tabIndex={0}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                }}
               >
                 {opt.flagSvg && (
                   <img
                     src={opt.flagSvg}
                     alt=""
                     aria-hidden
-                    style={{
-                      width: 16,
-                      height: 12,
-                      objectFit: "cover",
-                      borderRadius: 2,
-                    }}
+                    className="jam-wg-flag"
                   />
                 )}
                 {opt.label ? <span>{opt.label}</span> : null}

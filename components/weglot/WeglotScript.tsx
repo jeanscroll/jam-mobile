@@ -13,20 +13,42 @@ const WEGLOT_STYLE = `
     padding: 4px 10px !important;
     width: auto !important;
     min-width: 64px !important;
+    /* La liste s'ouvre au-dessus : ne pas la rogner. */
+    overflow: visible !important;
   }
   .wgcurrent {
     background: transparent !important;
     border: none !important;
   }
-  .wg-default ul {
+  /* Liste des langues : ouverture vers le HAUT (switcher ancré en bas d'écran)
+     et au-dessus du drapeau courant. Sans ce positionnement explicite, la liste
+     se superposait au drapeau courant à l'ouverture ("2 drapeaux superposés").
+     Ciblé sur le <aside> conteneur pour couvrir toutes les versions de classes
+     Weglot (wg-default / weglot-default). */
+  aside.weglot_switcher > ul,
+  aside.country-selector > ul,
+  aside.weglot-dropdown > ul {
+    position: absolute !important;
+    left: 0 !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    margin: 0 !important;
+    list-style: none !important;
     background: rgba(15, 15, 15, 0.95) !important;
     border: 1.5px solid #BBFE68 !important;
     border-radius: 12px !important;
   }
-  .wg-default .wg-li a {
+  /* Masquée tant que le switcher est fermé */
+  aside.weglot_switcher.closed > ul,
+  aside.country-selector.closed > ul,
+  aside.weglot-dropdown.closed > ul {
+    display: none !important;
+  }
+  .wg-li a {
     color: #fff !important;
   }
-  .wg-default .wg-li:hover a {
+  .wg-li:hover a {
     color: #BBFE68 !important;
   }
 `;
@@ -70,7 +92,10 @@ function injectWeglotStyle() {
       applyWeglotPosition(aside);
       _applyingWeglotStyle = false;
     });
-    _weglotObserver.observe(aside, { attributes: true, attributeFilter: ["style"] });
+    _weglotObserver.observe(aside, {
+      attributes: true,
+      attributeFilter: ["style"],
+    });
   }
 }
 

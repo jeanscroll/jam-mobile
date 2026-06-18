@@ -55,43 +55,63 @@ body {
    dans WeglotScript.tsx (événement switchersReady) pour garantir qu'il vient
    après le CSS CDN Weglot dans le cascade. */
 
-html body .weglot_switcher,
-html body .weglot-dropdown,
-html body [class*="weglot"],
+/* On épingle UNIQUEMENT le conteneur <aside> du switcher (et #weglot_here),
+   JAMAIS ses descendants. L'ancien sélecteur [class*="weglot"] matchait aussi
+   les <a>/<li> internes (classes weglot-*) et les forçait toutes en
+   position:fixed au même point (bottom:30px/left:20px) → les drapeaux se
+   superposaient. */
+html body aside.weglot_switcher,
+html body aside.country-selector,
+html body aside.weglot-dropdown,
+html body aside[class*="weglot"],
 html body #weglot_here,
-body .weglot_switcher,
-body .weglot-dropdown,
-body [class*="weglot"],
-body #weglot_here,
-.weglot_switcher,
-.weglot-dropdown,
-[class*="weglot"],
+aside.weglot_switcher,
+aside.country-selector,
+aside.weglot-dropdown,
+aside[class*="weglot"],
 #weglot_here {
   position: fixed !important;
   bottom: 30px !important;
   left: 20px !important;
+  top: unset !important;
+  right: unset !important;
   z-index: 99999 !important;
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
-}
-
-.weglot_switcher[style],
-.weglot-dropdown[style],
-[class*="weglot"][style],
-#weglot_here[style] {
-  position: fixed !important;
-  bottom: 30px !important;
-  left: 20px !important;
+  /* La liste s'ouvre au-dessus (cf. plus bas) : ne pas la rogner. */
+  overflow: visible !important;
 }
 
 /* Surcharge pour les builds de production */
-html[data-build="production"] .weglot_switcher,
-html[data-build="production"] .weglot-dropdown,
-html[data-build="production"] [class*="weglot"] {
+html[data-build="production"] aside.weglot_switcher,
+html[data-build="production"] aside.country-selector,
+html[data-build="production"] aside.weglot-dropdown,
+html[data-build="production"] aside[class*="weglot"] {
   position: fixed !important;
   bottom: 30px !important;
   left: 20px !important;
+}
+
+/* Dropdown natif (mobile, is_dropdown) ancré en bas d'écran : la liste des
+   langues s'ouvre vers le HAUT, au-dessus du drapeau courant, et reste masquée
+   tant que le switcher est fermé (.closed). Sans ce positionnement explicite,
+   la liste se superposait au drapeau courant à l'ouverture. */
+aside.weglot_switcher > ul,
+aside.country-selector > ul,
+aside.weglot-dropdown > ul {
+  position: absolute !important;
+  left: 0 !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(100% + 8px) !important;
+  margin: 0 !important;
+}
+
+aside.weglot_switcher.closed > ul,
+aside.country-selector.closed > ul,
+aside.weglot-dropdown.closed > ul {
+  display: none !important;
 }
 
 /* Fix concatenation de mots entre spans wg-* adjacents (Plasmic splite les
