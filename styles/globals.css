@@ -115,3 +115,25 @@ span[wg-10]::before {
 .wgcurrent {
   position: relative !important;
 }
+
+/* ===== PAGES COURTES (/login, /register) : TOUT TIENT SUR UN ÉCRAN, SANS SCROLL =====
+   Le body porte des paddings safe-area (haut/bas, cf. plus haut). Additionnés
+   au wrapper de page Plasmic (`.plasmic_page_wrapper`, min-height:100vh), ils
+   produisaient une hauteur totale = 100vh + safe-area-top + safe-area-bottom,
+   soit un débordement égal à la hauteur des safe-areas → scroll sur l'app native
+   (encoche / home indicator). Ces pages tiennent déjà dans un écran ; on contraint
+   donc le wrapper à la zone réellement visible et on coupe le scroll. Scoping
+   `html.fit-screen` (posé par _app.tsx) → uniquement sur ces routes courtes ;
+   les formulaires longs (/register-candidat, /register-company…) restent scrollables. */
+html.fit-screen,
+html.fit-screen body {
+  overflow: hidden;
+}
+html.fit-screen .plasmic_page_wrapper {
+  height: calc(
+    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  ) !important;
+  min-height: calc(
+    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  ) !important;
+}

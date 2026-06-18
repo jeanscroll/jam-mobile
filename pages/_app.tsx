@@ -45,6 +45,67 @@ function MyApp({ Component, pageProps }: AppProps) {
     );
   }, []);
 
+  // Pages courtes (login, choix d'inscription) : tout doit tenir sur un écran,
+  // sans scroll. Le body porte des paddings safe-area (notch / home indicator)
+  // qui, additionnés au wrapper de page Plasmic (min-height:100vh), créaient un
+  // débordement = hauteur des safe-areas → scroll sur l'app native. On marque
+  // <html> avec `fit-screen` pour appliquer le fix CSS (cf. globals.css), sur ces
+  // routes courtes uniquement (les formulaires longs doivent rester scrollables).
+  // Le catchall rend toutes les pages → on lit le chemin réel via asPath.
+  useEffect(() => {
+    const FIT_SCREEN_ROUTES = new Set(["/login", "/register"]);
+    const path = (router.asPath || "").split("?")[0].split("#")[0];
+    document.documentElement.classList.toggle(
+      "fit-screen",
+      FIT_SCREEN_ROUTES.has(path)
+    );
+    return () => {
+      document.documentElement.classList.remove("fit-screen");
+    };
+  }, [router.asPath]);
+
+  // Le fond html/body (#010A07, cf. globals.css) ressort dans les safe-areas
+  // (notch / home indicator) sur l'app native. Ce sombre convient aux pages
+  // sombres (accueil) mais crée des bandes sombres disgracieuses sur les pages
+  // claires (login, inscription…). On aligne donc le fond des safe-areas sur le
+  // fond réel de la page courante : si un fond opaque couvrant l'écran est
+  // détecté on l'applique à html/body, sinon on garde le défaut sombre.
+  useEffect(() => {
+    let cancelled = false;
+    const opaque = (c: string) =>
+      !!c && c !== "transparent" && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c);
+    const sync = () => {
+      if (cancelled) return;
+      const wrap = document.querySelector<HTMLElement>(".plasmic_page_wrapper");
+      let bg = wrap ? getComputedStyle(wrap).backgroundColor : "";
+      if (wrap && !opaque(bg)) {
+        const big = Array.from(wrap.querySelectorAll<HTMLElement>("*")).find(
+          (el) => {
+            const r = el.getBoundingClientRect();
+            return (
+              r.top < window.innerHeight &&
+              r.width >= window.innerWidth * 0.9 &&
+              r.height >= window.innerHeight * 0.5 &&
+              opaque(getComputedStyle(el).backgroundColor)
+            );
+          }
+        );
+        if (big) bg = getComputedStyle(big).backgroundColor;
+      }
+      const val = opaque(bg) ? bg : "";
+      document.documentElement.style.backgroundColor = val;
+      document.body.style.backgroundColor = val;
+    };
+    // Plasmic rend de façon asynchrone → on resynchronise sur quelques délais.
+    const timers = [0, 60, 150, 300, 600].map((d) =>
+      window.setTimeout(sync, d)
+    );
+    return () => {
+      cancelled = true;
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [router.asPath]);
+
   // Plasmic en mode preview:true peut rejeter des promesses avec un 500 lors
   // du refetch live des données Studio. Sans handler, Next.js affiche une page
   // d'erreur blanche. On filtre silencieusement ces rejections Plasmic pour
