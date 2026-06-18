@@ -14,51 +14,11 @@ body {
 
 /* Les paddings safe-area ci-dessus laissent apparaître le fond du body dans les
    zones notch / home indicator. Sans couleur de fond, ces zones tombaient sur le
-   blanc par défaut (bandes blanches en haut/bas). On force le fond noir de l'app
-   pour que ces bandes suivent le thème sombre. */
+   blanc par défaut (bandes blanches en haut/bas). On force le fond sombre de
+   l'app (#010A07) pour que ces bandes suivent le thème. */
 html,
 body {
-  background-color: #000000;
-}
-
-/* Dégradé de transition safe-area → contenu.
-   Le hero est une photo opaque dont le bord franc crée une démarcation nette
-   avec les bandes noires (notch / home indicator). On superpose un dégradé
-   noir → transparent ancré sur chaque bord du viewport : la zone safe-area
-   reste 100% noire (stop à env(safe-area-inset-*)), puis on fond vers la
-   transparence sur une courte distance à l'intérieur du contenu → la couture
-   est adoucie sans assombrir les boutons (fondu très léger, surtout en bas).
-   pointer-events:none → n'intercepte aucun tap. z-index sous Weglot (99999). */
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-  z-index: 9990;
-}
-
-body::before {
-  top: 0;
-  height: calc(env(safe-area-inset-top) + 16px);
-  background: linear-gradient(
-    to bottom,
-    #000000 0,
-    #000000 env(safe-area-inset-top),
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-body::after {
-  bottom: 0;
-  height: calc(env(safe-area-inset-bottom) + 8px);
-  background: linear-gradient(
-    to top,
-    #000000 0,
-    #000000 env(safe-area-inset-bottom),
-    rgba(0, 0, 0, 0) 100%
-  );
+  background-color: #010A07;
 }
 
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
