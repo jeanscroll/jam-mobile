@@ -261,9 +261,10 @@ const Mapbox: React.FC<MapboxProps> = ({
       const popup = new mapboxgl.Popup({
         offset: 25,
         className: "isDynamicForTranslate",
-        // Largeur responsive : la card ne doit jamais dépasser la largeur de
-        // l'écran (sinon elle s'affiche coupée sur mobile). On borne à 82vw.
-        maxWidth: "min(330px, 82vw)",
+        // Largeur responsive et compacte (device petit) : la card ne doit
+        // jamais dépasser la largeur de l'écran (sinon coupée). Aligné sur la
+        // largeur CSS de .mapboxgl-popup-content.
+        maxWidth: "min(260px, 72vw)",
       }).setHTML(`
          ${
            markerState === "applied"
@@ -321,16 +322,18 @@ const Mapbox: React.FC<MapboxProps> = ({
         const content = popup.getElement();
 
         // Recentrer la carte sur le marqueur cliqué pour que la card soit
-        // entièrement visible. Le popup s'ouvre au-dessus du marqueur : on
-        // décale donc le centre vers le bas de la moitié de la hauteur de la
-        // card, ce qui place l'ensemble (marqueur + card) au centre du viewport.
+        // entièrement visible et centrée. Le popup s'ouvre au-dessus du
+        // marqueur (+ tip de 25px) : on décale le centre vers le bas de la
+        // moitié de la hauteur card+tip, ce qui place l'ensemble (marqueur +
+        // card) au centre du viewport, quelle que soit la taille du device.
         const card = content?.querySelector<HTMLElement>(
           ".mapboxgl-popup-content"
         );
-        const cardHeight = card?.offsetHeight ?? 280;
+        const POPUP_TIP_OFFSET = 25; // cf. new mapboxgl.Popup({ offset: 25 })
+        const cardHeight = card?.offsetHeight ?? 240;
         mapRef.current?.easeTo({
           center: [longitude, latitude],
-          offset: [0, cardHeight / 2],
+          offset: [0, (cardHeight + POPUP_TIP_OFFSET) / 2],
           duration: 500,
         });
 
@@ -466,33 +469,34 @@ const Mapbox: React.FC<MapboxProps> = ({
 
 
             .mapboxgl-popup-content {
-               /* Largeur responsive : bornée à la largeur de l'écran pour ne
-                  jamais être coupée sur mobile (cf. maxWidth du Popup). */
-               width: min(330px, 82vw);
+               /* Card compacte : le device est petit, on borne fort la largeur
+                  pour qu'elle reste entièrement visible et centrée au clic. */
+               width: min(260px, 72vw);
                box-sizing: border-box;
                font-family: 'Arial', sans-serif;
                background: #fff;
-               border-radius: 16px;
+               border-radius: 14px;
                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-               padding: 22px 14px 16px;
+               padding: 18px 12px 12px;
                display: flex;
                flex-direction: column;
-               gap: 8px;
+               gap: 6px;
                z-index: 9999;
                overflow: hidden;
                cursor: pointer;
             }
 
-            /* Écrans étroits : on réduit encore la card pour gagner de la place */
-            @media (max-width: 380px) {
+            /* Écrans très étroits : on réduit encore */
+            @media (max-width: 360px) {
                .mapboxgl-popup-content {
-                  padding: 18px 12px 14px;
-                  gap: 6px;
+                  width: min(220px, 80vw);
+                  padding: 16px 10px 10px;
+                  gap: 5px;
                }
-               .mapboxgl-popup-content h3 { font-size: 16px; }
-               .mapboxgl-popup-content p { font-size: 13px; }
-               .popup-info div { font-size: 11px; padding: 5px 8px; }
-               .company_logo { width: 76px !important; }
+               .mapboxgl-popup-content h3 { font-size: 14px; }
+               .mapboxgl-popup-content p { font-size: 12px; }
+               .popup-info div { font-size: 10px; padding: 4px 7px; }
+               .company_logo { width: 60px !important; }
             }
 
             .mapboxgl-popup-content.last-minute-border::before {
@@ -620,14 +624,14 @@ const Mapbox: React.FC<MapboxProps> = ({
 
             .mapboxgl-popup-content h3 {
                line-height: 1.2;
-               font-size: 18px;
+               font-size: 15px;
                font-weight: bold;
                color: #333;
-               width: 70%;
+               width: 75%;
             }
-            
+
             .mapboxgl-popup-content p {
-               font-size: 14px;
+               font-size: 12.5px;
             }
 
             .mapboxgl-popup-content a {
@@ -635,16 +639,16 @@ const Mapbox: React.FC<MapboxProps> = ({
                text-decoration: none;
                font-weight: bold;
             }
-            
+
             .company_logo {
-               width: 100px!important;
+               width: 64px!important;
                border-radius: 8px;
             }
-            
+
             .popup-info {
                display: flex;
                flex-wrap: wrap;
-               gap: 6px;
+               gap: 5px;
                padding-left:2.5%;
                padding-right:2.5%;
             }
@@ -652,19 +656,19 @@ const Mapbox: React.FC<MapboxProps> = ({
 
             .popup-info div {
                background: #F4F4F4;
-               padding: 6px 10px;
-               border-radius: 16px;
-               font-size: 12px;
+               padding: 5px 8px;
+               border-radius: 14px;
+               font-size: 11px;
                font-weight: bold;
                color: #000;
                display: flex;
                align-items: center;
                gap: 4px;
             }
-            
+
             .popup-info div img {
-               width: 14px;
-               height: 14px;
+               width: 13px;
+               height: 13px;
             }
 
 
