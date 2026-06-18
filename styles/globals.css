@@ -26,7 +26,8 @@ body {
    avec les bandes noires (notch / home indicator). On superpose un dégradé
    noir → transparent ancré sur chaque bord du viewport : la zone safe-area
    reste 100% noire (stop à env(safe-area-inset-*)), puis on fond vers la
-   transparence sur ~44px à l'intérieur de la photo → plus de ligne visible.
+   transparence sur une courte distance à l'intérieur du contenu → la couture
+   est adoucie sans assombrir les boutons (fondu très léger, surtout en bas).
    pointer-events:none → n'intercepte aucun tap. z-index sous Weglot (99999). */
 body::before,
 body::after {
@@ -40,7 +41,7 @@ body::after {
 
 body::before {
   top: 0;
-  height: calc(env(safe-area-inset-top) + 44px);
+  height: calc(env(safe-area-inset-top) + 16px);
   background: linear-gradient(
     to bottom,
     #000000 0,
@@ -51,7 +52,7 @@ body::before {
 
 body::after {
   bottom: 0;
-  height: calc(env(safe-area-inset-bottom) + 44px);
+  height: calc(env(safe-area-inset-bottom) + 8px);
   background: linear-gradient(
     to top,
     #000000 0,
