@@ -159,7 +159,9 @@ const Mapbox: React.FC<MapboxProps> = ({
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || locked) return;
     const map = mapRef.current;
-    const handleMoveEnd = () => { onMoveEnd?.(); };
+    const handleMoveEnd = () => {
+      onMoveEnd?.();
+    };
     map.once("moveend", handleMoveEnd);
     map.flyTo({ center: [longitude, latitude], essential: true });
   }, [latitude, longitude, mapLoaded, locked, onMoveEnd]);
@@ -259,6 +261,9 @@ const Mapbox: React.FC<MapboxProps> = ({
       const popup = new mapboxgl.Popup({
         offset: 25,
         className: "isDynamicForTranslate",
+        // Largeur responsive : la card ne doit jamais dépasser la largeur de
+        // l'écran (sinon elle s'affiche coupée sur mobile). On borne à 82vw.
+        maxWidth: "min(330px, 82vw)",
       }).setHTML(`
          ${
            markerState === "applied"
@@ -314,6 +319,21 @@ const Mapbox: React.FC<MapboxProps> = ({
 
       popup.on("open", () => {
         const content = popup.getElement();
+
+        // Recentrer la carte sur le marqueur cliqué pour que la card soit
+        // entièrement visible. Le popup s'ouvre au-dessus du marqueur : on
+        // décale donc le centre vers le bas de la moitié de la hauteur de la
+        // card, ce qui place l'ensemble (marqueur + card) au centre du viewport.
+        const card = content?.querySelector<HTMLElement>(
+          ".mapboxgl-popup-content"
+        );
+        const cardHeight = card?.offsetHeight ?? 280;
+        mapRef.current?.easeTo({
+          center: [longitude, latitude],
+          offset: [0, cardHeight / 2],
+          duration: 500,
+        });
+
         if (content) {
           content.classList.add(`${markerState.replace("_", "-")}-border`);
 
@@ -446,18 +466,33 @@ const Mapbox: React.FC<MapboxProps> = ({
 
 
             .mapboxgl-popup-content {
-               width: 350px;
+               /* Largeur responsive : bornée à la largeur de l'écran pour ne
+                  jamais être coupée sur mobile (cf. maxWidth du Popup). */
+               width: min(330px, 82vw);
+               box-sizing: border-box;
                font-family: 'Arial', sans-serif;
                background: #fff;
                border-radius: 16px;
                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-               padding: 30px 16px;
+               padding: 22px 14px 16px;
                display: flex;
                flex-direction: column;
                gap: 8px;
                z-index: 9999;
                overflow: hidden;
                cursor: pointer;
+            }
+
+            /* Écrans étroits : on réduit encore la card pour gagner de la place */
+            @media (max-width: 380px) {
+               .mapboxgl-popup-content {
+                  padding: 18px 12px 14px;
+                  gap: 6px;
+               }
+               .mapboxgl-popup-content h3 { font-size: 16px; }
+               .mapboxgl-popup-content p { font-size: 13px; }
+               .popup-info div { font-size: 11px; padding: 5px 8px; }
+               .company_logo { width: 76px !important; }
             }
 
             .mapboxgl-popup-content.last-minute-border::before {
