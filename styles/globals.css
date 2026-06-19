@@ -12,13 +12,38 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* Les paddings safe-area ci-dessus laissent apparaître le fond du body dans les
-   zones notch / home indicator. Sans couleur de fond, ces zones tombaient sur le
-   blanc par défaut (bandes blanches en haut/bas). On force le fond sombre de
-   l'app (#010A07) pour que ces bandes suivent le thème. */
+/* Les zones safe-area (notch / home indicator) laissent voir le fond derrière le
+   contenu. Plutôt qu'une couleur unique (qui ne pouvait pas coller à la fois au
+   HAUT et au BAS de la page — ex. accueil : hero sombre en haut, #000000 en bas),
+   on peint DEUX bandes fixes indépendantes : le haut suit la couleur réelle du
+   haut de la page, le bas celle du bas. Les deux couleurs sont échantillonnées en
+   JS (cf. _app.tsx → variables --safe-top-bg / --safe-bottom-bg). Le fond html/body
+   reste un fallback sombre pour le tout premier rendu / si l'échantillonnage échoue. */
 html,
 body {
   background-color: #02110b;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: -1; /* derrière le contenu, au-dessus du fond body */
+  pointer-events: none;
+}
+/* `background` (et non `background-color`) car la valeur peut être un
+   linear-gradient horizontal quand le haut de page est une image dégradée. */
+body::before {
+  top: 0;
+  height: env(safe-area-inset-top);
+  background: var(--safe-top-bg, #02110b);
+}
+body::after {
+  bottom: 0;
+  height: env(safe-area-inset-bottom);
+  background: var(--safe-bottom-bg, #000000);
 }
 
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
