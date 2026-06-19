@@ -18,7 +18,7 @@ body {
    l'app (#010A07) pour que ces bandes suivent le thème. */
 html,
 body {
-  background-color: #010A07;
+  background-color: #02110b;
 }
 
 /* ========== ANTI AUTO-ZOOM iOS SUR LES CHAMPS ==========
@@ -48,7 +48,6 @@ body {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
-
 
 /* ========== WEGLOT — POSITIONNEMENT ========== */
 /* Position fixe bas-gauche. Le style visuel (dark/lime) est injecté via JS
@@ -126,7 +125,7 @@ span[wg-7]::before,
 span[wg-8]::before,
 span[wg-9]::before,
 span[wg-10]::before {
-  content: ' ';
+  content: " ";
 }
 
 /* Éviter que position:fixed des parents casse le layout interne du switcher */
