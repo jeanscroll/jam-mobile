@@ -17,11 +17,19 @@ body {
    HAUT et au BAS de la page — ex. accueil : hero sombre en haut, #000000 en bas),
    on peint DEUX bandes fixes indépendantes : le haut suit la couleur réelle du
    haut de la page, le bas celle du bas. Les deux couleurs sont échantillonnées en
-   JS (cf. _app.tsx → variables --safe-top-bg / --safe-bottom-bg). Le fond html/body
-   reste un fallback sombre pour le tout premier rendu / si l'échantillonnage échoue. */
-html,
-body {
+   JS (cf. _app.tsx → variables --safe-top-bg / --safe-bottom-bg).
+
+   IMPORTANT : la couleur de base va sur HTML uniquement, et le BODY reste
+   transparent. Sinon, le fond opaque du body (étendu sur tout le viewport via le
+   padding safe-area) recouvre les bandes ::before/::after : celles-ci sont en
+   z-index négatif et le body n'établit pas de contexte d'empilement, donc elles
+   passent DERRIÈRE le fond du body et deviennent invisibles. Body transparent →
+   les bandes se peignent au-dessus du canvas html, sous le contenu. */
+html {
   background-color: #02110b;
+}
+body {
+  background-color: transparent;
 }
 
 body::before,
@@ -30,7 +38,7 @@ body::after {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: -1; /* derrière le contenu, au-dessus du fond body */
+  z-index: -1; /* au-dessus du canvas html, derrière le contenu (body transparent) */
   pointer-events: none;
 }
 /* `background` (et non `background-color`) car la valeur peut être un
