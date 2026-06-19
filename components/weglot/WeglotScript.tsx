@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
+// TEST (retour EN→FR) : pont de traduction maison désactivé — voir plus bas.
+// import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
 
 const WEGLOT_STYLE = `
   aside.weglot_switcher,
@@ -128,12 +129,13 @@ export default function WeglotScript() {
           originalLanguage: "fr",
           destinationLanguages: ["en"],
           autoSwitch: false,
-          // IMPORTANT : l'app est une SPA Next.js + Plasmic rendue côté client.
-          // `dynamic: true` est INDISPENSABLE : sans ça, Weglot ne traduit que le
-          // DOM présent à l'init (souvent vide car Plasmic n'a pas fini de rendre)
-          // et ne re-traduit jamais le contenu injecté ensuite ni les changements
-          // de page (navigation client-side) → la traduction "ne fonctionne pas".
-          dynamic: true,
+          // TEST (retour EN→FR incomplet) : on s'appuie désormais sur la détection
+          // de contenu dynamique configurée côté dashboard Weglot (sélecteur `body`
+          // déclaré dans Settings → App Settings) pour que le moteur NATIF re-scanne
+          // et traduise/restaure tout le DOM. Le pont maison `dynamicTranslate.ts`
+          // faisait doublon et cassait le retour à la langue source → désactivé
+          // ci-dessous. `dynamic: true` retiré pour éviter un 2e système concurrent.
+          // dynamic: true,
         });
 
         // switchersReady fire après que Weglot a créé le DOM du switcher ET
@@ -148,7 +150,12 @@ export default function WeglotScript() {
     // Pont de traduction dynamique : force la traduction du contenu rendu côté
     // client (cards Supabase, navigations SPA) que l'observer interne de Weglot
     // ne rattrape pas. S'auto-attend que window.Weglot.translate soit dispo.
-    startWeglotDynamicTranslation("fr");
+    //
+    // TEST (retour EN→FR incomplet) : DÉSACTIVÉ. Faisait doublon avec le moteur
+    // natif (qui re-scanne déjà `body` via le réglage dashboard) → deux observers
+    // concurrents sur document.body, et au retour FR certains nœuds restaient en
+    // anglais. Si le natif suffit (forward ET retour OK), on supprimera ce pont.
+    // startWeglotDynamicTranslation("fr");
   }, []);
 
   return null;
