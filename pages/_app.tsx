@@ -70,19 +70,19 @@ function MyApp({ Component, pageProps }: AppProps) {
   // pour le BAS. Une couleur unique ne pouvait pas coller au haut ET au bas
   // (accueil : hero en haut, #000000 en bas).
   //
-  // HAUT : c'est une image (hero). On lit donc les vrais pixels de sa première
-  // ligne (canvas) à plusieurs abscisses et on construit un dégradé horizontal
-  // qui prolonge l'image sous la status bar. Si l'image est cross-origin (canvas
-  // « teinté », getImageData impossible) ou absente, on retombe sur la couleur de
-  // fond opaque échantillonnée aux mêmes points. BAS : généralement uni → une
-  // seule couleur suffit. Pages claires (login) : les deux bandes deviennent claires.
+  // HAUT : le haut de page est une IMAGE (hero), au fond `background-color`
+  // transparent → échantillonner la couleur remonte jusqu'au wrapper Plasmic
+  // (blanc) et donne une bande blanche. On RÉAFFICHE donc l'image elle-même dans
+  // la bande, prolongée sous la status bar (`url(...)`, ancrée en haut, largeur
+  // 100%). Réafficher ≠ lire les pixels : aucune contrainte CORS (pas de canvas).
+  // Repli sur la couleur de fond uniquement si aucune image ne couvre le haut
+  // (ex. /login, fond clair uni → bande claire, ce qui est correct là-bas).
+  // BAS : généralement uni → une seule couleur de fond suffit.
   useEffect(() => {
     let cancelled = false;
     const root = document.documentElement;
     const opaque = (c: string) =>
       !!c && c !== "transparent" && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c);
-    // Points d'échantillonnage sur la largeur (fractions gauche → droite).
-    const FR = [0.02, 0.2, 0.4, 0.6, 0.8, 0.98];
 
     // Première couleur de fond opaque au point (x,y), en remontant les ancêtres.
     const solidAt = (x: number, y: number) => {
@@ -95,10 +95,24 @@ function MyApp({ Component, pageProps }: AppProps) {
       return "";
     };
 
-    // Source d'image (<img> ou background-image) couvrant le point (x,y).
-    const imageSrcAt = (x: number, y: number) => {
-      let el = document.elementFromPoint(x, y) as HTMLElement | null;
-      while (el && el !== root) {
+    // URL de l'image (hero) qui couvre le haut de l'écran sur toute la largeur.
+    // Recherche large (n'importe quel <img> ou background-image), car Plasmic rend
+    // souvent l'image en couche absolue — sœur, pas ancêtre — du point du haut.
+    const topImageUrl = (safeTop: number) => {
+      const scope =
+        document.querySelector<HTMLElement>(".plasmic_page_wrapper") ||
+        document.body;
+      const els = scope.querySelectorAll<HTMLElement>("*");
+      for (let i = 0; i < els.length; i++) {
+        const el = els[i];
+        const r = el.getBoundingClientRect();
+        // Élément pleine largeur, démarrant tout en haut et débordant la safe-area.
+        if (
+          r.top > safeTop + 4 ||
+          r.bottom < safeTop + 20 ||
+          r.width < window.innerWidth * 0.9
+        )
+          continue;
         if (el.tagName === "IMG") {
           const img = el as HTMLImageElement;
           if (img.currentSrc || img.src) return img.currentSrc || img.src;
@@ -106,87 +120,30 @@ function MyApp({ Component, pageProps }: AppProps) {
         const bi = getComputedStyle(el).backgroundImage;
         const m = bi && /url\(["']?(.*?)["']?\)/.exec(bi);
         if (m && m[1]) return m[1];
-        el = el.parentElement;
       }
       return "";
     };
 
-    const imgCache = new Map<string, HTMLImageElement | null>();
-    const loadImg = (src: string) =>
-      new Promise<HTMLImageElement | null>((resolve) => {
-        if (imgCache.has(src)) return resolve(imgCache.get(src) ?? null);
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          imgCache.set(src, img);
-          resolve(img);
-        };
-        img.onerror = () => {
-          imgCache.set(src, null);
-          resolve(null);
-        };
-        img.src = src;
-      });
-
-    // Couleurs de la 1re ligne de l'image aux fractions FR (null si CORS/échec).
-    // NB : mapping fraction → pixel approximatif (suppose un cadrage non rogné
-    // horizontalement), suffisant pour prolonger un haut quasi uniforme.
-    const sampleImageTop = async (src: string) => {
-      const img = await loadImg(src);
-      if (!img || !img.naturalWidth) return null;
-      try {
-        const cv = document.createElement("canvas");
-        cv.width = img.naturalWidth;
-        cv.height = 1;
-        const ctx = cv.getContext("2d");
-        if (!ctx) return null;
-        ctx.drawImage(
-          img,
-          0,
-          0,
-          img.naturalWidth,
-          1,
-          0,
-          0,
-          img.naturalWidth,
-          1
-        );
-        return FR.map((f) => {
-          const px = ctx.getImageData(
-            Math.min(cv.width - 1, Math.round(f * cv.width)),
-            0,
-            1,
-            1
-          ).data;
-          return `rgb(${px[0]}, ${px[1]}, ${px[2]})`;
-        });
-      } catch {
-        return null; // canvas « teinté » (cross-origin)
-      }
-    };
-
-    const toBand = (cols: string[]) =>
-      cols.every((c) => c === cols[0])
-        ? cols[0]
-        : `linear-gradient(to right, ${cols.join(", ")})`;
-
-    const sync = async () => {
+    const sync = () => {
       if (cancelled) return;
       const bs = getComputedStyle(document.body);
       const safeTop = parseFloat(bs.paddingTop) || 0;
       const safeBottom = parseFloat(bs.paddingBottom) || 0;
       const w = window.innerWidth;
 
-      // HAUT : prolonge l'image si présente, sinon couleurs de fond.
+      // HAUT : prolonge l'image du hero (ancrée en haut, pleine largeur) ; sinon
+      // couleur de fond opaque échantillonnée juste sous la status bar.
       if (safeTop > 0) {
-        const src = imageSrcAt(w / 2, safeTop + 2);
-        let cols = src ? await sampleImageTop(src) : null;
-        if (cancelled) return;
-        if (!cols) {
-          const fb = FR.map((f) => solidAt(Math.round(w * f), safeTop + 2));
-          if (!fb.some((c) => !c)) cols = fb;
+        const src = topImageUrl(safeTop);
+        if (src) {
+          root.style.setProperty(
+            "--safe-top-bg",
+            `url("${src}") center top / 100% auto no-repeat`
+          );
+        } else {
+          const c = solidAt(Math.round(w / 2), safeTop + 2);
+          if (c) root.style.setProperty("--safe-top-bg", c);
         }
-        if (cols) root.style.setProperty("--safe-top-bg", toBand(cols));
       }
 
       // BAS : uni (ex. #000000 sur l'accueil) → une seule couleur.
