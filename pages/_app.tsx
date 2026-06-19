@@ -65,61 +65,50 @@ function MyApp({ Component, pageProps }: AppProps) {
   }, [router.asPath]);
 
   // Les safe-areas (notch / home indicator) laissent voir un fond derrière le
-  // contenu. On les peint via deux bandes fixes (cf. globals.css, ::before/::after)
-  // dont la couleur suit la page : --safe-top-bg pour le HAUT, --safe-bottom-bg
-  // pour le BAS. Une couleur unique ne pouvait pas coller au haut ET au bas
-  // (accueil : hero en haut, #000000 en bas).
+  // contenu. On les peint via deux bandes fixes (cf. globals.css, ::before/::after) :
+  // --safe-top-bg pour le HAUT, --safe-bottom-bg pour le BAS.
   //
-  // HAUT : le haut de page est une IMAGE (hero), au fond `background-color`
-  // transparent → échantillonner la couleur remonte jusqu'au wrapper Plasmic
-  // (blanc) et donne une bande blanche. On RÉAFFICHE donc l'image elle-même dans
-  // la bande, prolongée sous la status bar (`url(...)`, ancrée en haut, largeur
-  // 100%). Réafficher ≠ lire les pixels : aucune contrainte CORS (pas de canvas).
-  // Repli sur la couleur de fond uniquement si aucune image ne couvre le haut
-  // (ex. /login, fond clair uni → bande claire, ce qui est correct là-bas).
-  // BAS : généralement uni → une seule couleur de fond suffit.
+  // Sur l'accueil, le fond de page est une SECTION au dégradé vertical
+  // (background-image: linear-gradient(#010A07 → #000000)) — son background-COLOR
+  // est transparent, d'où l'échec d'un simple échantillonnage de couleur (qui
+  // remontait jusqu'au wrapper Plasmic blanc → bande blanche). On extrait donc, sur
+  // cette section, la 1re couleur du dégradé pour le HAUT et la dernière pour le BAS.
+  // Les deux sont lues au même point (en haut), donc indépendantes du scroll. Repli :
+  // 1re couleur de fond opaque rencontrée (ex. /login, fond clair uni → bandes
+  // claires, ce qui est correct), puis défaut CSS.
   useEffect(() => {
     let cancelled = false;
     const root = document.documentElement;
-    const opaque = (c: string) =>
-      !!c && c !== "transparent" && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c);
 
-    // Première couleur de fond opaque au point (x,y), en remontant les ancêtres.
-    const solidAt = (x: number, y: number) => {
-      let el = document.elementFromPoint(x, y) as HTMLElement | null;
-      while (el && el !== root) {
-        const c = getComputedStyle(el).backgroundColor;
-        if (opaque(c)) return c;
-        el = el.parentElement;
+    // Opaque sauf "transparent" ou rgba(...) d'alpha 0. NB : ne PAS confondre avec
+    // rgb(0,0,0) (noir, 3 composantes, opaque) — on ne teste l'alpha que sur 4 comp.
+    const opaque = (c: string) => {
+      if (!c || c === "transparent") return false;
+      const m = c.match(/^rgba?\(([^)]+)\)/);
+      if (m) {
+        const p = m[1].split(",").map((s) => s.trim());
+        if (p.length === 4 && parseFloat(p[3]) === 0) return false;
       }
-      return "";
+      return true;
     };
 
-    // URL de l'image (hero) qui couvre le haut de l'écran sur toute la largeur.
-    // Recherche large (n'importe quel <img> ou background-image), car Plasmic rend
-    // souvent l'image en couche absolue — sœur, pas ancêtre — du point du haut.
-    const topImageUrl = (safeTop: number) => {
-      const scope =
-        document.querySelector<HTMLElement>(".plasmic_page_wrapper") ||
-        document.body;
-      const els = scope.querySelectorAll<HTMLElement>("*");
-      for (let i = 0; i < els.length; i++) {
-        const el = els[i];
-        const r = el.getBoundingClientRect();
-        // Élément pleine largeur, démarrant tout en haut et débordant la safe-area.
-        if (
-          r.top > safeTop + 4 ||
-          r.bottom < safeTop + 20 ||
-          r.width < window.innerWidth * 0.9
-        )
-          continue;
-        if (el.tagName === "IMG") {
-          const img = el as HTMLImageElement;
-          if (img.currentSrc || img.src) return img.currentSrc || img.src;
+    // Couleur de bande au point (x,y) : 1re couleur de fond opaque rencontrée en
+    // remontant les ancêtres ; à défaut, couleur d'un dégradé (1re pour le haut,
+    // dernière pour le bas). Renvoie "" si rien d'exploitable.
+    const bandColor = (x: number, y: number, end: "top" | "bottom") => {
+      let el = document.elementFromPoint(x, y) as HTMLElement | null;
+      while (el && el !== root) {
+        const cs = getComputedStyle(el);
+        if (opaque(cs.backgroundColor)) return cs.backgroundColor;
+        const bg = cs.backgroundImage;
+        if (bg && bg.indexOf("gradient") !== -1) {
+          const cols = bg.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/g);
+          if (cols && cols.length) {
+            const c = end === "bottom" ? cols[cols.length - 1] : cols[0];
+            if (opaque(c)) return c;
+          }
         }
-        const bi = getComputedStyle(el).backgroundImage;
-        const m = bi && /url\(["']?(.*?)["']?\)/.exec(bi);
-        if (m && m[1]) return m[1];
+        el = el.parentElement;
       }
       return "";
     };
@@ -128,31 +117,15 @@ function MyApp({ Component, pageProps }: AppProps) {
       if (cancelled) return;
       const bs = getComputedStyle(document.body);
       const safeTop = parseFloat(bs.paddingTop) || 0;
-      const safeBottom = parseFloat(bs.paddingBottom) || 0;
-      const w = window.innerWidth;
+      const cx = Math.round(window.innerWidth / 2);
 
-      // HAUT : prolonge l'image du hero (ancrée en haut, pleine largeur) ; sinon
-      // couleur de fond opaque échantillonnée juste sous la status bar.
+      // Les deux bandes sont dérivées du fond du HAUT de page (point cx, safeTop+2) :
+      // début du dégradé pour le haut, fin pour le bas → cohérent et insensible au scroll.
       if (safeTop > 0) {
-        const src = topImageUrl(safeTop);
-        if (src) {
-          root.style.setProperty(
-            "--safe-top-bg",
-            `url("${src}") center top / 100% auto no-repeat`
-          );
-        } else {
-          const c = solidAt(Math.round(w / 2), safeTop + 2);
-          if (c) root.style.setProperty("--safe-top-bg", c);
-        }
-      }
-
-      // BAS : uni (ex. #000000 sur l'accueil) → une seule couleur.
-      if (safeBottom > 0) {
-        const b = solidAt(
-          Math.round(w / 2),
-          window.innerHeight - safeBottom - 2
-        );
-        if (b) root.style.setProperty("--safe-bottom-bg", b);
+        const top = bandColor(cx, safeTop + 2, "top");
+        if (top) root.style.setProperty("--safe-top-bg", top);
+        const bottom = bandColor(cx, safeTop + 2, "bottom");
+        if (bottom) root.style.setProperty("--safe-bottom-bg", bottom);
       }
     };
 

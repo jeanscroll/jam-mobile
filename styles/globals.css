@@ -46,7 +46,7 @@ body::after {
 body::before {
   top: 0;
   height: env(safe-area-inset-top);
-  background: var(--safe-top-bg, #02110b);
+  background: var(--safe-top-bg, #010a07);
 }
 body::after {
   bottom: 0;
