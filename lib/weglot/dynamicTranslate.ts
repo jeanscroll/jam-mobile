@@ -65,6 +65,13 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
   // true pendant nos propres écritures → l'observer ignore (évite les boucles)
   let applying = false;
   let debounceId: number | null = null;
+  // Langue cible « autorité » fournie par l'évènement `languageChanged` de Weglot.
+  // On NE se fie PAS à getCurrentLang() au moment du run() : Weglot met cette valeur
+  // à jour de façon asynchrone, donc un run() débouncé déclenché par switchTo("fr")
+  // peut encore lire "en" et RE-traduire au lieu de restaurer → page bloquée en
+  // anglais (aucun nouvel évènement ne vient corriger). L'argument de l'évènement,
+  // lui, reflète immédiatement la langue demandée.
+  let activeLang: string | null = null;
 
   const isSkippable = (node: Text): boolean => {
     const v = node.nodeValue;
@@ -134,7 +141,9 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
   const run = () => {
     const wg = getWeglot();
     if (!wg?.translate) return;
-    const lang = currentLang(wg);
+    // Priorité à la langue annoncée par l'évènement ; getCurrentLang() en secours
+    // (premier run au montage, avant tout changement de langue).
+    const lang = activeLang ?? currentLang(wg);
     if (!lang || lang === originalLang) {
       revertToOriginal();
       return;
@@ -223,7 +232,17 @@ export function startWeglotDynamicTranslation(originalLang = "fr"): void {
       characterData: true,
     });
     try {
-      wg?.on?.("languageChanged", () => schedule());
+      // Weglot passe (to, from) au callback. On mémorise la cible et on restaure
+      // IMMÉDIATEMENT au retour langue d'origine (sans attendre le débounce), pour
+      // qu'un run() en vol ne re-traduise pas entre-temps.
+      wg?.on?.("languageChanged", (to?: string) => {
+        activeLang = to ?? currentLang(getWeglot() as WeglotApi) ?? null;
+        if (activeLang === originalLang) {
+          if (debounceId != null) window.clearTimeout(debounceId);
+          revertToOriginal();
+        }
+        schedule();
+      });
     } catch {
       /* noop */
     }

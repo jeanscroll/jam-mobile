@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-// TEST (retour EN→FR) : pont de traduction maison désactivé — voir plus bas.
-// import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
+import { startWeglotDynamicTranslation } from "../../lib/weglot/dynamicTranslate";
 
 const WEGLOT_STYLE = `
   aside.weglot_switcher,
@@ -149,13 +148,15 @@ export default function WeglotScript() {
 
     // Pont de traduction dynamique : force la traduction du contenu rendu côté
     // client (cards Supabase, navigations SPA) que l'observer interne de Weglot
-    // ne rattrape pas. S'auto-attend que window.Weglot.translate soit dispo.
+    // ne rattrape pas de façon fiable. Le moteur natif seul ne traduit que le DOM
+    // présent au 1er chargement (la home) ; en navigation SPA il n'y a pas de
+    // rechargement de page, donc rien ne relance la traduction → le pont prend le
+    // relais via un MutationObserver sur `body` + l'API Weglot.translate().
     //
-    // TEST (retour EN→FR incomplet) : DÉSACTIVÉ. Faisait doublon avec le moteur
-    // natif (qui re-scanne déjà `body` via le réglage dashboard) → deux observers
-    // concurrents sur document.body, et au retour FR certains nœuds restaient en
-    // anglais. Si le natif suffit (forward ET retour OK), on supprimera ce pont.
-    // startWeglotDynamicTranslation("fr");
+    // Retour EN→FR : corrigé dans dynamicTranslate.ts — on se fie désormais à la
+    // langue annoncée par l'évènement `languageChanged` (et non à getCurrentLang()
+    // qui est mis à jour de façon asynchrone), et on restaure immédiatement.
+    startWeglotDynamicTranslation("fr");
   }, []);
 
   return null;
