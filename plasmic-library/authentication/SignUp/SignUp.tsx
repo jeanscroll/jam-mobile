@@ -77,8 +77,8 @@ export interface SignUpProps {
   buttonAbordStyle?: "primary" | "secondary" | "tertiary";
   submitButtonText?: string;
 
-  // Redirect
-  successRedirectUrl?: string;
+  // Redirect (doit correspondre au nom exposé dans SignUp.meta.ts)
+  redirectAfterSignUp?: string;
 
   // OAuth
   googleButtonText?: string;
@@ -165,8 +165,8 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
     // OAuth redirect
     redirectTo = "/auth/oauth-callback",
 
-    // Success redirect (undefined = no redirect)
-    successRedirectUrl,
+    // Success redirect (undefined = pas de redirection)
+    redirectAfterSignUp,
 
     // Links
     loginLinkText = "Déjà inscrit(e) ? CONNEXION",
@@ -535,9 +535,9 @@ function SignUp_(props: SignUpProps, ref: React.ForwardedRef<HTMLDivElement>) {
         addAlert("success", errorMessages.signupSuccess);
 
         // Redirection après succès (seulement si une URL est définie)
-        if (successRedirectUrl) {
+        if (redirectAfterSignUp) {
           setTimeout(() => {
-            router.push(successRedirectUrl);
+            router.push(redirectAfterSignUp);
           }, 1500);
         }
       } catch (error) {
