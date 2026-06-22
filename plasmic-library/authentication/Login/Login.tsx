@@ -232,7 +232,14 @@ function Login_(props: LoginProps, ref: HTMLElementRefOf<"div">) {
     }
   };
 
-  const isIOS = Capacitor.getPlatform() === "ios";
+  // Détection iOS différée au montage : appeler Capacitor.getPlatform() pendant
+  // le rendu casse l'hydratation (HTML pré-rendu au build = "web" → bouton Apple
+  // absent ; hydratation sur device = "ios" → bouton présent → mismatch). On part
+  // donc de false (identique serveur/client au 1er rendu) puis on bascule en effet.
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    setIsIOS(Capacitor.getPlatform() === "ios");
+  }, []);
 
   // Rendu des boutons OAuth
   const renderOAuthButtons = () => {
