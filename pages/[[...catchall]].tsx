@@ -23,8 +23,17 @@ class PlasmicErrorBoundary extends React.Component<
   static getDerivedStateFromError() {
     return { hasError: true };
   }
-  componentDidCatch(error: Error) {
-    console.warn("PLASMIC: Render error caught by boundary:", error.message);
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // On logge le message ET la stack du composant fautif : indispensable pour
+    // identifier QUELLE donnée dynamique plante (ex. page /annonces qui "saute").
+    console.warn(
+      `PLASMIC: Render error caught by boundary (retry ${this.state.retries}):`,
+      error?.message,
+      "\n",
+      error?.stack,
+      "\nComponent stack:",
+      info?.componentStack
+    );
   }
   componentDidUpdate(prevProps: { children: React.ReactNode }) {
     // Nouveau contenu de page → on réarme le boundary (et le compteur).
@@ -39,13 +48,39 @@ class PlasmicErrorBoundary extends React.Component<
       // MAIS si l'erreur persiste, ne JAMAIS rester sur un écran blanc sans
       // menu (l'utilisateur se retrouve "bloqué", impossible d'accéder à son
       // espace) : on affiche un repli avec une sortie vers l'accueil.
-      if (this.state.retries < 5) {
+      //
+      // Pendant les retries on affiche un loader STABLE (et non `null`) : sinon
+      // le contenu apparaît puis disparaît à chaque tentative → effet "la page
+      // saute". On laisse aussi plus de temps (8×400ms) car la requête Supabase
+      // peut être lente au démarrage à froid dans la WebView Capacitor.
+      if (this.state.retries < 8) {
         setTimeout(
           () =>
             this.setState((s) => ({ hasError: false, retries: s.retries + 1 })),
-          300
+          400
         );
-        return null;
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "100dvh",
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                border: "3px solid #e0e0e0",
+                borderTopColor: "#002400",
+                borderRadius: "50%",
+                animation: "plasmic-eb-spin 0.8s linear infinite",
+              }}
+            />
+            <style>{"@keyframes plasmic-eb-spin{to{transform:rotate(360deg)}}"}</style>
+          </div>
+        );
       }
       return (
         <div
